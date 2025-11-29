@@ -155,18 +155,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useResponsive } from '@/composables/useResponsive'
-import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  DashboardOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  MenuOutlined,
-  BulbOutlined,
-  BulbFilled
-} from '@ant-design/icons-vue'
+import * as AntdIcons from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import ThemeSettings from '@/components/ThemeSettings.vue'
@@ -211,12 +200,43 @@ const loadUserMenus = async () => {
 
 // 将菜单数据转换为Ant Design Menu需要的格式
 const buildMenuItems = (menus) => {
-  const iconMap = {
-    'DashboardOutlined': DashboardOutlined,
-    'SettingOutlined': SettingOutlined,
-    'UserOutlined': UserOutlined,
-    'TeamOutlined': TeamOutlined,
-    'MenuOutlined': MenuOutlined
+  // 渲染图标的函数 - 支持Ant Design图标、SVG、URL、纯文本
+  const renderIcon = (iconStr) => {
+    if (!iconStr) return undefined
+    
+    // 1. 检查是否是Ant Design图标组件名 - 从全局导入中查找
+    if (AntdIcons[iconStr]) {
+      return () => h(AntdIcons[iconStr])
+    }
+    
+    // 2. 检查是否是SVG标签
+    if (iconStr.startsWith('<svg')) {
+      // 为SVG添加样式属性以控制大小
+      const styledSvg = iconStr.replace(
+        /<svg/,
+        '<svg style="width: 1em; height: 1em; vertical-align: -0.125em;"'
+      )
+      return () => h('span', {
+        innerHTML: styledSvg,
+        style: { display: 'inline-flex', alignItems: 'center' }
+      })
+    }
+    
+    // 3. 检查是否是图片URL
+    if (iconStr.startsWith('http') || iconStr.startsWith('/')) {
+      return () => h('img', {
+        src: iconStr,
+        style: {
+          width: '1em',
+          height: '1em',
+          verticalAlign: '-0.125em',
+          marginRight: '0.5em'
+        }
+      })
+    }
+    
+    // 4. 其他情况作为纯文本（如"N"、Emoji等）
+    return () => h('span', { style: { fontSize: '14px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' } }, iconStr)
   }
 
   return menus
@@ -230,7 +250,7 @@ const buildMenuItems = (menus) => {
       
       return {
         key: menu.path,
-        icon: menu.icon ? () => h(iconMap[menu.icon] || DashboardOutlined) : undefined,
+        icon: renderIcon(menu.icon),
         label: menu.menuName,
         title: menu.menuName,
         // 只有当children存在且不为空数组时才设置children（过滤后可能为空）
@@ -554,6 +574,50 @@ import { h } from 'vue'
   color: var(--theme-textPrimary, #000000d9) !important;
 }
 
+/* 菜单图标对齐 - 为icon设置固定宽度以便文本对齐 */
+:deep(.ant-menu-item .ant-menu-item-icon),
+:deep(.ant-menu-submenu-title .ant-menu-item-icon) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 1em;
+  margin-right: 12px !important;
+  font-size: 16px;
+}
+
+/* 确保图标内的所有元素都居中显示 */
+:deep(.ant-menu-item .ant-menu-item-icon > *),
+:deep(.ant-menu-submenu-title .ant-menu-item-icon > *) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+/* SVG 图标尺寸统一 */
+:deep(.ant-menu-item .ant-menu-item-icon svg),
+:deep(.ant-menu-submenu-title .ant-menu-item-icon svg) {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* 图片图标尺寸统一 */
+:deep(.ant-menu-item .ant-menu-item-icon img),
+:deep(.ant-menu-submenu-title .ant-menu-item-icon img) {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* 无icon的菜单项 */
+:deep(.ant-menu-item):not(.ant-menu-item-selected) .ant-menu-item-icon,
+:deep(.ant-menu-submenu-title):not(.ant-menu-submenu-selected) .ant-menu-item-icon {
+  min-width: 16px;
+}
+
 /* 暗色模式菜单项 */
 .dark-mode :deep(.ant-menu-item),
 .dark-mode :deep(.ant-menu-submenu-title) {
@@ -599,11 +663,11 @@ import { h } from 'vue'
   color: #ffffff !important;
 }
 
-/* 菜单图标样式 */
+/* 菜单图标样式 - 已由上面的 .ant-menu-item-icon 统一控制 */
+/* 移除重复的 margin-right 设置，避免冲突 */
 :deep(.ant-menu-item .anticon),
 :deep(.ant-menu-submenu-title .anticon) {
   font-size: 16px;
-  margin-right: 10px;
 }
 
 /* 子菜单样式 - 暗色模式 */

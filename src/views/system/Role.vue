@@ -98,7 +98,20 @@ const columns = [
   { title: '角色编码', dataIndex: 'roleCode', key: 'roleCode' },
   { title: '描述', dataIndex: 'description', key: 'description' },
   { title: '状态', key: 'status' },
-  { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
+  {
+    title: '创建时间',
+    dataIndex: 'createTime',
+    key: 'createTime',
+    width: 180,
+    customRender: ({ text }) => text ? text.replace('T', ' ').substring(0, 19) : '-'
+  },
+  {
+    title: '更新时间',
+    dataIndex: 'updateTime',
+    key: 'updateTime',
+    width: 180,
+    customRender: ({ text }) => text ? text.replace('T', ' ').substring(0, 19) : '-'
+  },
   { title: '操作', key: 'action', width: 200 }
 ]
 

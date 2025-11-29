@@ -8,12 +8,12 @@
       style="cursor: pointer;"
     >
       <template #prefix>
-        <component v-if="modelValue && isPresetIcon" :is="getIconComponent(modelValue)" />
-        <img v-else-if="modelValue && isUrlIcon" :src="modelValue" alt="icon" class="custom-icon-preview" />
-        <span v-else-if="modelValue && isSvgIcon" v-html="modelValue" class="custom-icon-preview"></span>
+        <component v-if="isPresetIcon" :is="getIconComponent(modelValue)" />
+        <img v-else-if="isUrlIcon" :src="modelValue" alt="icon" class="custom-icon-preview" />
+        <span v-else-if="isSvgIcon" v-html="modelValue" class="custom-icon-preview"></span>
       </template>
       <template #suffix>
-        <SearchOutlined style="cursor: pointer" />
+        <component :is="AntIcons.SearchOutlined" style="cursor: pointer" />
       </template>
     </a-input>
 
@@ -33,27 +33,21 @@
           <!-- 搜索框 -->
           <a-input
             v-model:value="searchText"
-            placeholder="搜索图标名称（支持中英文）"
+            placeholder="搜索图标名称"
             allow-clear
             size="large"
             style="margin-bottom: 16px"
           >
             <template #prefix>
-              <SearchOutlined />
+              <component :is="AntIcons.SearchOutlined" />
             </template>
           </a-input>
 
           <!-- 风格切换 -->
           <div class="style-selector" style="margin-bottom: 16px">
             <a-radio-group v-model:value="activeStyle" button-style="solid" size="large">
-              <a-radio-button value="outlined">
-                <BorderOutlined /> 线性 (Outlined)
-              </a-radio-button>
-              <a-radio-button value="filled">
-                <BgColorsOutlined /> 面性 (Filled)
-              </a-radio-button>
-              <a-radio-button value="twoTone">
-                <SmileOutlined /> 双色 (TwoTone)
+              <a-radio-button v-for="style in styleOptions" :key="style.value" :value="style.value">
+                <component :is="AntIcons[style.icon]" /> {{ style.label }}
               </a-radio-button>
             </a-radio-group>
             <a-tag color="blue" style="margin-left: 12px">
@@ -63,13 +57,7 @@
 
           <!-- 图标分类标签 -->
           <a-tabs v-model:activeKey="activeCategory" style="margin-bottom: 16px">
-            <a-tab-pane key="all" tab="全部" />
-            <a-tab-pane key="directional" tab="方向性" />
-            <a-tab-pane key="suggested" tab="提示建议" />
-            <a-tab-pane key="editor" tab="编辑类" />
-            <a-tab-pane key="data" tab="数据类" />
-            <a-tab-pane key="brand" tab="品牌标识" />
-            <a-tab-pane key="application" tab="网站通用" />
+            <a-tab-pane v-for="category in categoryOptions" :key="category.key" :tab="category.label" />
           </a-tabs>
 
           <!-- 图标网格 -->
@@ -80,10 +68,10 @@
               class="icon-item"
               :class="{ active: selectedIcon === icon.name }"
               @click="selectIcon(icon.name)"
-              :title="`${icon.title} (${icon.name})`"
+              :title="`${icon.base} (${icon.name})`"
             >
-              <component :is="getIconComponent(icon.name)" class="icon" />
-              <div class="icon-name">{{ icon.title }}</div>
+              <component :is="icon.component" class="icon" />
+              <div class="icon-name">{{ icon.base }}</div>
             </div>
           </div>
 
@@ -134,7 +122,7 @@
         <div class="icon-selector-footer">
           <div class="selected-info">
             <span v-if="iconMode === 'preset' && selectedIcon">
-              已选择: <strong>{{ getIconTitle(selectedIcon) }}</strong>
+              已选择: <strong>{{ getIconBaseName(selectedIcon) }}</strong>
               <a-tag color="processing" style="margin-left: 8px">{{ styleLabel }}</a-tag>
             </span>
             <span v-else-if="iconMode === 'custom'">
@@ -154,11 +142,66 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { SearchOutlined, BorderOutlined, BgColorsOutlined, SmileOutlined } from '@ant-design/icons-vue'
-import * as antIcons from '@ant-design/icons-vue'
+import { ref, computed, watch, shallowRef } from 'vue'
+import * as AntIcons from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 
+// ============ 常量定义 ============
+const ICON_SUFFIX = {
+  OUTLINED: 'Outlined',
+  FILLED: 'Filled',
+  TWO_TONE: 'TwoTone'
+}
+
+const ICON_STYLES = [
+  { label: '线性', value: 'outlined', suffix: ICON_SUFFIX.OUTLINED, icon: 'BorderOutlined' },
+  { label: '实心', value: 'filled', suffix: ICON_SUFFIX.FILLED, icon: 'BgColorsOutlined' },
+  { label: '双色', value: 'twoTone', suffix: ICON_SUFFIX.TWO_TONE, icon: 'SmileOutlined' }
+]
+
+// 图标分类关键词映射（基于 Ant Design 官方分类）
+const CATEGORY_KEYWORDS = {
+  directional: [
+    'step', 'fast', 'shrink', 'arrows', 'arrow', 'caret', 'double', 'vertical', 'up', 'down',
+    'left', 'right', 'forward', 'backward', 'enter', 'rollback', 'retweet', 'swap', 'login',
+    'logout', 'menu', 'border', 'pic', 'radius', 'fullscreen'
+  ],
+  suggested: [
+    'question', 'plus', 'minus', 'info', 'exclamation', 'close', 'check', 'clock', 'warning',
+    'pause', 'stop', 'issues'
+  ],
+  editor: [
+    'edit', 'form', 'copy', 'scissor', 'delete', 'snippets', 'diff', 'highlight', 'align',
+    'bgcolor', 'bold', 'italic', 'underline', 'strikethrough', 'redo', 'undo', 'zoom',
+    'fontcolor', 'fontsize', 'lineheight', 'dash', 'sort', 'drag', 'ordered', 'unordered',
+    'column', 'row'
+  ],
+  data: [
+    'area', 'pie', 'bar', 'dot', 'line', 'radar', 'heat', 'box', 'fall', 'rise', 'stock',
+    'fund', 'sliders', 'table', 'partition', 'insert', 'merge', 'split', 'chart'
+  ],
+  brand: [
+    'android', 'apple', 'windows', 'chrome', 'github', 'gitlab', 'twitter', 'wechat',
+    'weibo', 'alipay', 'taobao', 'qq', 'dingtalk', 'youtube', 'linkedin', 'facebook',
+    'instagram', 'medium', 'slack', 'reddit', 'behance', 'dribbble', 'codepen', 'yuque',
+    'alibaba', 'ant', 'google', 'amazon', 'skype', 'html'
+  ],
+  application: [
+    'account', 'alert', 'api', 'appstore', 'audio', 'audit', 'bank', 'barcode', 'bell',
+    'book', 'bug', 'bulb', 'calculator', 'calendar', 'camera', 'car', 'carry', 'code',
+    'compass', 'contacts', 'container', 'credit', 'crown', 'customer', 'dashboard',
+    'database', 'desktop', 'dollar', 'download', 'upload', 'environment', 'euro', 'eye',
+    'file', 'filter', 'fire', 'flag', 'folder', 'fork', 'gift', 'global', 'heart',
+    'history', 'home', 'hourglass', 'idcard', 'inbox', 'insurance', 'key', 'laptop',
+    'layout', 'like', 'lock', 'mail', 'message', 'mobile', 'money', 'notification',
+    'phone', 'picture', 'printer', 'profile', 'project', 'qrcode', 'read', 'robot',
+    'rocket', 'safety', 'save', 'scan', 'schedule', 'search', 'security', 'setting',
+    'share', 'shop', 'shopping', 'skin', 'smile', 'star', 'tag', 'team', 'tool',
+    'trophy', 'user', 'video', 'wallet', 'wifi'
+  ]
+}
+
+// ============ Props & Emits ============
 const props = defineProps({
   modelValue: {
     type: String,
@@ -168,202 +211,249 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
+// ============ 响应式状态 ============
 const visible = ref(false)
 const searchText = ref('')
 const selectedIcon = ref(props.modelValue)
 const activeCategory = ref('all')
 const activeStyle = ref('outlined')
 const iconMode = ref('preset')
-const modeOptions = [
-  { label: '预设图标', value: 'preset' },
-  { label: '自定义图标', value: 'custom' }
-]
 const customType = ref('url')
 const customIconUrl = ref('')
 const customIconSvg = ref('')
 const isValidSvg = ref(false)
 
-const isPresetIcon = computed(() => {
-  if (!props.modelValue) return false
-  return !props.modelValue.startsWith('http') && !props.modelValue.startsWith('<svg')
+// 使用 shallowRef 优化性能，避免深度响应式
+const iconCache = shallowRef(new Map())
+
+// ============ 工具函数 ============
+/**
+ * 获取图标的基础名称（去除后缀）
+ */
+const getIconBaseName = (iconName) => {
+  return iconName.replace(/(Outlined|Filled|TwoTone)$/, '')
+}
+
+/**
+ * 根据基础名称和样式生成完整图标名
+ */
+const buildIconName = (baseName, style = 'outlined') => {
+  if (baseName.endsWith(ICON_SUFFIX.OUTLINED) || 
+      baseName.endsWith(ICON_SUFFIX.FILLED) || 
+      baseName.endsWith(ICON_SUFFIX.TWO_TONE)) {
+    return baseName
+  }
+  const styleConfig = ICON_STYLES.find(s => s.value === style)
+  return `${baseName}${styleConfig?.suffix || ICON_SUFFIX.OUTLINED}`
+}
+
+/**
+ * 检查是否为有效的图标组件
+ */
+const isValidIconComponent = (iconName) => {
+  return iconName && AntIcons[iconName] !== undefined
+}
+
+/**
+ * 获取图标组件
+ */
+const getIconComponent = (iconName) => {
+  if (!iconName) return null
+  
+  // 使用缓存提升性能
+  if (iconCache.value.has(iconName)) {
+    return iconCache.value.get(iconName)
+  }
+  
+  const component = AntIcons[iconName] || null
+  iconCache.value.set(iconName, component)
+  return component
+}
+
+/**
+ * 判断图标类型
+ */
+const getIconType = (icon) => {
+  if (!icon) return null
+  if (icon.startsWith('http') || icon.startsWith('/')) return 'url'
+  if (icon.startsWith('<svg')) return 'svg'
+  if (isValidIconComponent(icon)) return 'preset'
+  return null
+}
+
+// ============ 图标数据处理 ============
+/**
+ * 从 AntIcons 对象中提取所有图标
+ */
+const extractAllIcons = () => {
+  return Object.keys(AntIcons).filter(key => {
+    // 只过滤出以图标后缀结尾的 key
+    return key.endsWith(ICON_SUFFIX.OUTLINED) || 
+           key.endsWith(ICON_SUFFIX.FILLED) || 
+           key.endsWith(ICON_SUFFIX.TWO_TONE)
+  })
+}
+
+/**
+ * 智能分类图标
+ */
+const categorizeIcons = () => {
+  const allIcons = extractAllIcons()
+  const categories = {
+    all: allIcons,
+    directional: [],
+    suggested: [],
+    editor: [],
+    data: [],
+    brand: [],
+    application: []
+  }
+
+  allIcons.forEach(iconName => {
+    const baseName = getIconBaseName(iconName).toLowerCase()
+    let categorized = false
+
+    // 遍历分类关键词进行匹配
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      // 优化：使用 some 提前退出
+      if (keywords.some(keyword => baseName.includes(keyword))) {
+        categories[category].push(iconName)
+        categorized = true
+        break
+      }
+    }
+
+    // 未分类的归入应用类
+    if (!categorized) {
+      categories.application.push(iconName)
+    }
+  })
+
+  return categories
+}
+
+// 生成图标分类数据
+const iconCategories = categorizeIcons()
+
+// ============ 配置选项 ============
+const modeOptions = [
+  { label: '预设图标', value: 'preset' },
+  { label: '自定义图标', value: 'custom' }
+]
+
+const styleOptions = computed(() => {
+  return ICON_STYLES.filter(style => isValidIconComponent(style.icon))
 })
 
-const isUrlIcon = computed(() => {
-  if (!props.modelValue) return false
-  return props.modelValue.startsWith('http')
+const categoryOptions = computed(() => {
+  return [
+    { key: 'all', label: '全部', count: iconCategories.all?.length || 0 },
+    { key: 'directional', label: '方向性', count: iconCategories.directional?.length || 0 },
+    { key: 'suggested', label: '提示建议', count: iconCategories.suggested?.length || 0 },
+    { key: 'editor', label: '编辑类', count: iconCategories.editor?.length || 0 },
+    { key: 'data', label: '数据类', count: iconCategories.data?.length || 0 },
+    { key: 'brand', label: '品牌标识', count: iconCategories.brand?.length || 0 },
+    { key: 'application', label: '网站通用', count: iconCategories.application?.length || 0 }
+  ].filter(cat => cat.count > 0)
 })
 
-const isSvgIcon = computed(() => {
-  if (!props.modelValue) return false
-  return props.modelValue.startsWith('<svg')
-})
+// ============ 计算属性 ============
+const iconType = computed(() => getIconType(props.modelValue))
+
+const isPresetIcon = computed(() => iconType.value === 'preset')
+const isUrlIcon = computed(() => iconType.value === 'url')
+const isSvgIcon = computed(() => iconType.value === 'svg')
 
 const canConfirm = computed(() => {
   if (iconMode.value === 'preset') {
-    return !!selectedIcon.value
-  } else {
-    return customType.value === 'url' ? !!customIconUrl.value : isValidSvg.value
+    return !!selectedIcon.value && isValidIconComponent(selectedIcon.value)
   }
+  return customType.value === 'url' ? !!customIconUrl.value : isValidSvg.value
 })
 
 const styleLabel = computed(() => {
-  if (activeStyle.value === 'outlined') return '线性'
-  if (activeStyle.value === 'filled') return '面性'
-  if (activeStyle.value === 'twoTone') return '双色'
-  return ''
+  return styleOptions.value.find(opt => opt.value === activeStyle.value)?.label || ''
 })
-
-// Ant Design 图标完整列表 - 基于官方文档
-const iconCategories = {
-  directional: [
-    'StepBackward', 'StepForward', 'FastBackward', 'FastForward', 'Shrink', 'ArrowsAlt', 'Down', 'Up', 'Left', 'Right',
-    'CaretUp', 'CaretDown', 'CaretLeft', 'CaretRight', 'UpCircle', 'DownCircle', 'LeftCircle', 'RightCircle',
-    'DoubleRight', 'DoubleLeft', 'VerticalLeft', 'VerticalRight', 'VerticalAlignTop', 'VerticalAlignMiddle',
-    'VerticalAlignBottom', 'Forward', 'Backward', 'Rollback', 'Enter', 'Retweet', 'Swap', 'SwapLeft', 'SwapRight',
-    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PlayCircle', 'UpSquare', 'DownSquare', 'LeftSquare',
-    'RightSquare', 'Login', 'Logout', 'MenuFold', 'MenuUnfold', 'BorderBottom', 'BorderHorizontal', 'BorderInner',
-    'BorderOuter', 'BorderLeft', 'BorderRight', 'BorderTop', 'BorderVerticle', 'PicCenter', 'PicLeft', 'PicRight',
-    'RadiusBottomleft', 'RadiusBottomright', 'RadiusUpleft', 'RadiusUpright', 'Fullscreen', 'FullscreenExit'
-  ],
-  suggested: [
-    'Question', 'QuestionCircle', 'Plus', 'PlusCircle', 'Pause', 'PauseCircle', 'Minus', 'MinusCircle',
-    'PlusSquare', 'MinusSquare', 'Info', 'InfoCircle', 'Exclamation', 'ExclamationCircle', 'Close',
-    'CloseCircle', 'CloseSquare', 'Check', 'CheckCircle', 'CheckSquare', 'ClockCircle', 'Warning',
-    'IssuesClose', 'Stop'
-  ],
-  editor: [
-    'Edit', 'Form', 'Copy', 'Scissor', 'Delete', 'Snippets', 'Diff', 'Highlight', 'AlignCenter', 'AlignLeft',
-    'AlignRight', 'BgColors', 'Bold', 'Italic', 'Underline', 'Strikethrough', 'Redo', 'Undo', 'ZoomIn', 'ZoomOut',
-    'FontColors', 'FontSize', 'LineHeight', 'Dash', 'SmallDash', 'SortAscending', 'SortDescending', 'Drag',
-    'OrderedList', 'UnorderedList', 'RadiusBottomleft', 'RadiusBottomright', 'RadiusUpleft', 'RadiusUpright',
-    'RadiusSetting', 'ColumnWidth', 'ColumnHeight'
-  ],
-  data: [
-    'Area', 'AreaChart', 'PieChart', 'BarChart', 'DotChart', 'LineChart', 'RadarChart', 'HeatMap',
-    'Fall', 'Rise', 'Stock', 'BoxPlot', 'Fund', 'Sliders', 'FundProjectionScreen', 'FundView',
-    'InsertRowAbove', 'InsertRowBelow', 'InsertRowLeft', 'InsertRowRight', 'MergeCells', 'SubNode',
-    'SplitCells', 'DeleteColumn', 'DeleteRow', 'Table', 'TableOutlined', 'Partition'
-  ],
-  brand: [
-    'Android', 'Apple', 'Windows', 'Ie', 'Chrome', 'Github', 'Aliwangwang', 'Dingding', 'WeiboSquare',
-    'WeiboCircle', 'Taobao', 'Html5', 'Weibo', 'Twitter', 'Wechat', 'Youtube', 'AlipayCircle', 'Taobao',
-    'Skype', 'Qq', 'MediumWorkmark', 'Gitlab', 'Medium', 'Linkedin', 'GooglePlus', 'Dropbox', 'Facebook',
-    'Codepen', 'CodeSandbox', 'Amazon', 'Google', 'CodepenCircle', 'Alipay', 'AntDesign', 'AntCloud',
-    'Aliyun', 'Zhihu', 'Slack', 'SlackSquare', 'Behance', 'BehanceSquare', 'Dribbble', 'DribbbleSquare',
-    'Instagram', 'Yuque', 'Alibaba', 'Yahoo', 'Reddit', 'Sketch'
-  ],
-  application: [
-    'Account', 'Alert', 'Api', 'Appstore', 'AppstoreAdd', 'Audio', 'Audit', 'Bank', 'Barcode', 'Bars',
-    'Bell', 'Block', 'Book', 'Border', 'BorderlessTable', 'Branches', 'Bug', 'Build', 'Bulb', 'Calculator',
-    'Calendar', 'Camera', 'Car', 'CarryOut', 'CiCircle', 'Ci', 'Clear', 'Cloud', 'CloudDownload', 'CloudServer',
-    'CloudSync', 'CloudUpload', 'Cluster', 'Code', 'Coffee', 'Comment', 'Compass', 'Compress', 'Contacts',
-    'Container', 'Control', 'CreditCard', 'Crown', 'CustomerService', 'Dashboard', 'Database', 'DeleteColumn',
-    'DeleteRow', 'DeliveredProcedure', 'Deployment', 'Desktop', 'Disconnect', 'Dislike', 'Dollar', 'Download',
-    'Ellipsis', 'Environment', 'Euro', 'Exception', 'Exclamation', 'Expand', 'Experiment', 'Export', 'Eye',
-    'EyeInvisible', 'FieldBinary', 'FieldNumber', 'FieldString', 'FieldTime', 'FileAdd', 'FileDone',
-    'FileExcel', 'FileExclamation', 'File', 'FileImage', 'FileJpg', 'FileMarkdown', 'FilePdf', 'FilePpt',
-    'FileProtect', 'FileSearch', 'FileSync', 'FileText', 'FileUnknown', 'FileWord', 'FileZip', 'Filter',
-    'Fire', 'Flag', 'Folder', 'FolderAdd', 'FolderOpen', 'FolderView', 'Fork', 'FormatPainter', 'Frown',
-    'Function', 'FundProjectionScreen', 'FundView', 'Funnel', 'Gateway', 'Gif', 'Gift', 'Global', 'Gold',
-    'Group', 'Hdd', 'Heart', 'HeatMap', 'Highlight', 'History', 'Home', 'Hourglass', 'Html5', 'Idcard',
-    'Import', 'Inbox', 'InsertRowAbove', 'InsertRowBelow', 'InsertRowLeft', 'InsertRowRight', 'Insurance',
-    'Interaction', 'Key', 'Laptop', 'Layout', 'Like', 'Line', 'Link', 'Loading', 'Lock', 'MacCommand',
-    'Mail', 'Man', 'Medicine', 'Meh', 'Menu', 'MergeCells', 'Message', 'Mobile', 'Money', 'Monitor',
-    'More', 'Node', 'Notification', 'Number', 'Paperclip', 'Partition', 'PayCircle', 'Percentage',
-    'Phone', 'Picture', 'PlaySquare', 'Pound', 'Poweroff', 'Printer', 'Profile', 'Project', 'Property',
-    'PullRequest', 'Pushpin', 'QrCode', 'Read', 'Reconciliation', 'RedEnvelope', 'Reload', 'Rest',
-    'Robot', 'Rocket', 'Rotate', 'Safety', 'SafetyCertificate', 'Save', 'Scan', 'Schedule', 'Search',
-    'Security', 'Select', 'Send', 'Setting', 'Shake', 'Share', 'Shop', 'Shopping', 'ShoppingCart',
-    'Signal', 'Skin', 'Smile', 'Solution', 'Sound', 'Split', 'Star', 'Streamline', 'Strikethrough',
-    'SubNode', 'Switcher', 'Sync', 'Tab', 'Tag', 'Tags', 'Team', 'Thunderbolt', 'ToTop', 'Tool',
-    'Trademark', 'Transaction', 'Translation', 'Trophy', 'Umbrella', 'Underline', 'Undo', 'Ungroup',
-    'Unlock', 'Upload', 'Usb', 'User', 'UserAdd', 'UserDelete', 'UserSwitch', 'Usergroup', 'UsergroupAdd',
-    'UsergroupDelete', 'Verified', 'VerticalAlignBottom', 'VerticalAlignMiddle', 'VerticalAlignTop',
-    'Video', 'Wallet', 'Warning', 'Wifi', 'Woman'
-  ]
-}
-
-const getIconName = (base, style) => {
-  if (base.endsWith('Outlined') || base.endsWith('Filled') || base.endsWith('TwoTone')) {
-    return base
-  }
-  const suffix = style === 'outlined' ? 'Outlined' : style === 'filled' ? 'Filled' : 'TwoTone'
-  return `${base}${suffix}`
-}
-
-const getIconsByCategory = (category) => {
-  const categories = category === 'all' ? Object.values(iconCategories).flat() : iconCategories[category] || []
-  return categories
-    .map(base => {
-      const name = getIconName(base, activeStyle.value)
-      return {
-        name,
-        title: base,
-        base
-      }
-    })
-    .filter(icon => getIconComponent(icon.name))
-}
-
-const getIconComponent = (iconName) => {
-  return antIcons[iconName] || null
-}
-
-const getIconTitle = (iconName) => {
-  return iconName.replace(/Outlined$|Filled$|TwoTone$/, '')
-}
 
 const displayValue = computed(() => {
   if (!props.modelValue) return ''
-  if (isPresetIcon.value) return getIconTitle(props.modelValue)
+  if (isPresetIcon.value) return getIconBaseName(props.modelValue)
   if (isUrlIcon.value) return '自定义URL图标'
   if (isSvgIcon.value) return '自定义SVG图标'
   return ''
 })
 
+/**
+ * 根据分类和样式获取图标列表
+ */
+const getIconsByCategory = computed(() => {
+  const category = activeCategory.value
+  const style = activeStyle.value
+  
+  // 获取当前分类的图标
+  let icons = iconCategories[category] || []
+  
+  // 根据选中的样式过滤
+  const targetSuffix = ICON_STYLES.find(s => s.value === style)?.suffix
+  if (targetSuffix) {
+    icons = icons.filter(icon => icon.endsWith(targetSuffix))
+  }
+  
+  // 转换为显示格式
+  return icons.map(iconName => ({
+    name: iconName,
+    base: getIconBaseName(iconName),
+    component: getIconComponent(iconName)
+  }))
+})
+
+/**
+ * 搜索过滤图标
+ */
 const filteredIcons = computed(() => {
-  let icons = getIconsByCategory(activeCategory.value)
+  const icons = getIconsByCategory.value
+  
   if (!searchText.value) return icons
-  const keyword = searchText.value.toLowerCase()
+  
+  const keyword = searchText.value.toLowerCase().trim()
   return icons.filter(icon => 
     icon.name.toLowerCase().includes(keyword) ||
-    icon.title.toLowerCase().includes(keyword)
+    icon.base.toLowerCase().includes(keyword)
   )
 })
 
-const validateSvg = (svg) => {
-  const trimmed = svg.trim()
-  isValidSvg.value = trimmed.startsWith('<svg') && trimmed.endsWith('</svg>')
-}
-
-const handleImageError = () => {
-  message.error('图标加载失败，请检查 URL')
-}
-
+// ============ 监听器 ============
 watch(() => props.modelValue, (newVal) => {
   selectedIcon.value = newVal
 })
 
-watch(activeStyle, (newStyle) => {
+watch(activeStyle, () => {
+  // 切换样式时，如果已选择图标，自动切换到对应样式的图标
   if (selectedIcon.value && iconMode.value === 'preset') {
-    const baseName = getIconTitle(selectedIcon.value)
-    const newIconName = getIconName(baseName, newStyle)
-    if (getIconComponent(newIconName)) {
+    const baseName = getIconBaseName(selectedIcon.value)
+    const newIconName = buildIconName(baseName, activeStyle.value)
+    if (isValidIconComponent(newIconName)) {
       selectedIcon.value = newIconName
     }
   }
 })
 
-watch(customIconSvg, () => validateSvg(customIconSvg.value))
+watch(customIconSvg, (val) => {
+  const trimmed = val.trim()
+  isValidSvg.value = trimmed.startsWith('<svg') && trimmed.endsWith('</svg>')
+})
 
+// ============ 方法 ============
 const showModal = () => {
   selectedIcon.value = props.modelValue
   searchText.value = ''
   activeCategory.value = 'all'
   
-  if (props.modelValue && (props.modelValue.startsWith('http') || props.modelValue.startsWith('<svg'))) {
+  const type = getIconType(props.modelValue)
+  
+  if (type === 'url' || type === 'svg') {
     iconMode.value = 'custom'
-    if (props.modelValue.startsWith('http')) {
+    if (type === 'url') {
       customType.value = 'url'
       customIconUrl.value = props.modelValue
     } else {
@@ -373,11 +463,17 @@ const showModal = () => {
   } else {
     iconMode.value = 'preset'
     if (props.modelValue) {
-      if (props.modelValue.endsWith('Filled')) activeStyle.value = 'filled'
-      else if (props.modelValue.endsWith('TwoTone')) activeStyle.value = 'twoTone'
-      else activeStyle.value = 'outlined'
+      // 自动检测图标样式
+      if (props.modelValue.endsWith(ICON_SUFFIX.FILLED)) {
+        activeStyle.value = 'filled'
+      } else if (props.modelValue.endsWith(ICON_SUFFIX.TWO_TONE)) {
+        activeStyle.value = 'twoTone'
+      } else {
+        activeStyle.value = 'outlined'
+      }
     }
   }
+  
   visible.value = true
 }
 
@@ -386,11 +482,15 @@ const selectIcon = (iconName) => {
 }
 
 const handleOk = () => {
+  let value = ''
+  
   if (iconMode.value === 'preset') {
-    emit('update:modelValue', selectedIcon.value)
+    value = selectedIcon.value
   } else {
-    emit('update:modelValue', customType.value === 'url' ? customIconUrl.value : customIconSvg.value)
+    value = customType.value === 'url' ? customIconUrl.value : customIconSvg.value
   }
+  
+  emit('update:modelValue', value)
   visible.value = false
 }
 
@@ -400,6 +500,10 @@ const handleCancel = () => {
   customIconSvg.value = ''
   isValidSvg.value = false
   visible.value = false
+}
+
+const handleImageError = () => {
+  message.error('图标加载失败，请检查 URL')
 }
 </script>
 

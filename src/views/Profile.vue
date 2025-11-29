@@ -32,8 +32,8 @@
             <a-form-item label="用户名">
               <a-input v-model:value="userInfoForm.username" disabled />
             </a-form-item>
-            <a-form-item label="真实姓名">
-              <a-input v-model:value="userInfoForm.realName" placeholder="请输入真实姓名" />
+            <a-form-item label="昵称">
+              <a-input v-model:value="userInfoForm.realName" placeholder="请输入昵称" />
             </a-form-item>
             <a-form-item label="手机号">
               <a-input v-model:value="userInfoForm.phone" placeholder="请输入手机号" />

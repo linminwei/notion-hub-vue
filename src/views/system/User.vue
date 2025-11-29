@@ -110,11 +110,24 @@ const userStatusDict = ref([])
 
 const columns = [
   { title: '用户名', dataIndex: 'username', key: 'username' },
-  { title: '真实姓名', dataIndex: 'realName', key: 'realName' },
+  { title: '昵称', dataIndex: 'realName', key: 'realName' },
   { title: '手机号', dataIndex: 'phone', key: 'phone' },
   { title: '邮箱', dataIndex: 'email', key: 'email' },
   { title: '状态', key: 'status' },
-  { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
+  {
+    title: '创建时间',
+    dataIndex: 'createTime',
+    key: 'createTime',
+    width: 180,
+    customRender: ({ text }) => text ? text.replace('T', ' ').substring(0, 19) : '-'
+  },
+  {
+    title: '更新时间',
+    dataIndex: 'updateTime',
+    key: 'updateTime',
+    width: 180,
+    customRender: ({ text }) => text ? text.replace('T', ' ').substring(0, 19) : '-'
+  },
   { title: '操作', key: 'action', width: 150 }
 ]
 
