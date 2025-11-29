@@ -152,10 +152,20 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useResponsive } from '@/composables/useResponsive'
 import * as AntdIcons from '@ant-design/icons-vue'
+import { 
+  MenuOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
+  BulbOutlined,
+  BulbFilled,
+  SettingOutlined,
+  UserOutlined,
+  LogoutOutlined
+} from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import ThemeSettings from '@/components/ThemeSettings.vue'
@@ -326,9 +336,6 @@ onMounted(() => {
   themeStore.initTheme()
   loadUserMenus()
 })
-
-// 导入h函数用于渲染图标
-import { h } from 'vue'
 </script>
 
 <style scoped>
