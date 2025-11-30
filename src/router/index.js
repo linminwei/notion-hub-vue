@@ -60,6 +60,12 @@ const routes = [
         meta: { title: 'Notion工作区管理' }
       },
       {
+        path: 'notion/integration',
+        name: 'NotionIntegration',
+        component: () => import('@/views/notion/NotionIntegration.vue'),
+        meta: { title: 'Notion集成管理' }
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
