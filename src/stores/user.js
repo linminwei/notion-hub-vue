@@ -75,6 +75,17 @@ export const useUserStore = defineStore('user', () => {
       const res = await getCurrentUser()
       if (res.data) {
         userInfo.value = res.data
+        
+        // 更新权限数据（修复刷新页面后权限丢失的问题）
+        if (res.data.permissions) {
+          permissions.value = res.data.permissions
+        }
+        
+        // 更新角色数据
+        if (res.data.roles) {
+          roles.value = res.data.roles.map(role => role.roleCode)
+        }
+        
         return true
       }
       return false
@@ -110,6 +121,21 @@ export const useUserStore = defineStore('user', () => {
 
   // 检查是否有权限
   const hasPermission = (permission) => {
+    // 超级管理员拥有所有权限（生产环境建议开启）
+    // 如果需要测试权限控制，请使用非 admin 角色的用户
+    const isAdmin = roles.value.some(role => 
+      role === 'admin' || 
+      role === 'ADMIN' || 
+      role === 'SUPER_ADMIN' ||
+      role === 'super_admin'
+    )
+    
+    if (isAdmin) {
+      // TODO: 生产环境应该 return true
+      // 目前为测试环境，允许限制 admin 权限
+      return true
+    }
+    
     return permissions.value.includes(permission)
   }
 

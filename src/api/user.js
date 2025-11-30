@@ -1,11 +1,15 @@
+﻿/**
+ * 用户相关API
+ */
 import request from '@/utils/request'
+import { API_PATHS } from '@/constants'
 
 /**
  * 分页查询用户列表
  */
 export function getUserPage(params) {
   return request({
-    url: '/user/page',
+    url: API_PATHS.USER.PAGE,
     method: 'get',
     params
   })
@@ -16,7 +20,7 @@ export function getUserPage(params) {
  */
 export function addUser(data) {
   return request({
-    url: '/user',
+    url: API_PATHS.USER.BASE,
     method: 'post',
     data
   })
@@ -27,7 +31,7 @@ export function addUser(data) {
  */
 export function updateUser(data) {
   return request({
-    url: '/user',
+    url: API_PATHS.USER.BASE,
     method: 'put',
     data
   })
@@ -38,7 +42,7 @@ export function updateUser(data) {
  */
 export function deleteUser(id) {
   return request({
-    url: `/user/${id}`,
+    url: `${API_PATHS.USER.BASE}/${id}`,
     method: 'delete'
   })
 }
@@ -48,7 +52,7 @@ export function deleteUser(id) {
  */
 export function getUserRoles(userId) {
   return request({
-    url: `/user/${userId}/roles`,
+    url: API_PATHS.USER.ROLES(userId),
     method: 'get'
   })
 }
@@ -58,7 +62,7 @@ export function getUserRoles(userId) {
  */
 export function resetUserPassword(userId) {
   return request({
-    url: `/user/${userId}/reset-password`,
+    url: API_PATHS.USER.RESET_PASSWORD(userId),
     method: 'put'
   })
 }
@@ -68,7 +72,7 @@ export function resetUserPassword(userId) {
  */
 export function verifyPassword(password) {
   return request({
-    url: '/user/verify-password',
+    url: API_PATHS.USER.VERIFY_PASSWORD,
     method: 'post',
     data: { password }
   })
@@ -79,7 +83,7 @@ export function verifyPassword(password) {
  */
 export function changePassword(changePasswordDTO) {
   return request({
-    url: '/user/change-password',
+    url: API_PATHS.USER.CHANGE_PASSWORD,
     method: 'post',
     data: changePasswordDTO
   })
@@ -90,7 +94,7 @@ export function changePassword(changePasswordDTO) {
  */
 export function uploadAvatar(formData) {
   return request({
-    url: '/user/upload-avatar',
+    url: API_PATHS.USER.UPLOAD_AVATAR,
     method: 'post',
     data: formData,
     headers: {
@@ -104,7 +108,7 @@ export function uploadAvatar(formData) {
  */
 export function updateCurrentUserInfo(data) {
   return request({
-    url: '/user/update-info',
+    url: API_PATHS.USER.UPDATE_INFO,
     method: 'put',
     data
   })

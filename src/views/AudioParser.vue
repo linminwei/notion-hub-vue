@@ -1,6 +1,6 @@
 <template>
   <div class="audio-parser">
-    <a-card title="音频元数据解析">
+    <a-card class="audio-card">
       <!-- 上传区域，解析后隐藏 -->
       <div v-if="albums.length === 0" class="upload-area">
         <a-upload-dragger
@@ -8,18 +8,31 @@
           name="files"
           :multiple="true"
           :before-upload="beforeUpload"
-          :show-upload-list="true"
+          :show-upload-list="false"
           accept="audio/*"
           @remove="handleRemove"
         >
-          <p class="ant-upload-drag-icon">
-            <InboxOutlined />
-          </p>
-          <p class="ant-upload-text">点击或拖拽音频文件到此区域</p>
-          <p class="ant-upload-hint">
-            支持多个音频文件上传，支持 MP3、FLAC、WAV 等格式
-          </p>
+          <p class="upload-icon"><InboxOutlined /></p>
+          <h3 class="upload-title">拖放音乐文件到此处</h3>
+          <p class="upload-hint">支持 MP3、FLAC、WAV、AAC 等格式，可批量上传</p>
+          <a-button class="select-file-btn" type="primary" size="large">选择文件</a-button>
         </a-upload-dragger>
+
+        <div class="file-list-cards" v-if="fileList.length > 0">
+          <div class="file-card" v-for="(item, idx) in fileList" :key="idx">
+            <div class="file-icon">
+              <AudioOutlined />
+            </div>
+            <div class="file-info">
+              <div class="file-name">{{ (item.name || (item.originFileObj && item.originFileObj.name)) }}</div>
+              <div class="file-meta">
+                {{ (getFileExtension(item.name || (item.originFileObj && item.originFileObj.name)) || '').toUpperCase() }} ·
+                {{ formatFileSize((item.size) || (item.originFileObj && item.originFileObj.size)) }}
+              </div>
+            </div>
+            <a-button type="text" class="file-remove" @click="handleRemove(item)">移除</a-button>
+          </div>
+        </div>
         
         <div class="action-buttons" v-if="fileList.length > 0">
           <a-space>
@@ -48,10 +61,57 @@
               <template #icon><ReloadOutlined /></template>
               重新上传
             </a-button>
-            <span style="font-size: 16px; font-weight: bold;">
-              解析结果（共 {{ albums.length }} 个专辑）
-            </span>
+            <!-- 解析结果标题已移除 -->
           </a-space>
+        </div>
+        <div class="overview-stats">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-icon-wrapper">
+                <FileOutlined class="stat-icon files-icon" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">总文件数</div>
+                <div class="stat-value">{{ totalFiles }}</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon-wrapper">
+                <SoundOutlined class="stat-icon success-icon" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">解析成功</div>
+                <div class="stat-value">{{ totalSuccess }}</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon-wrapper">
+                <CloseCircleOutlined class="stat-icon failure-icon" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">解析失败</div>
+                <div class="stat-value">{{ totalFailure }}</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon-wrapper">
+                <ClockCircleOutlined class="stat-icon duration-icon" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">总时长</div>
+                <div class="stat-value">{{ totalDuration }}</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon-wrapper">
+                <DatabaseOutlined class="stat-icon size-icon" />
+              </div>
+              <div class="stat-content">
+                <div class="stat-title">总大小</div>
+                <div class="stat-value">{{ totalFileSize }}</div>
+              </div>
+            </div>
+          </div>
         </div>
         
         <!-- 专辑列表 -->
@@ -72,8 +132,10 @@
                     alt="专辑封面"
                   />
                   <div v-else class="no-cover-large">
-                    <FileImageOutlined style="font-size: 80px; color: #ccc;" />
-                    <div>无封面</div>
+                    <img
+                      :src="generateCoverPlaceholder(album.albumName)"
+                      alt="封面占位"
+                    />
                   </div>
                 </div>
               </div>
@@ -103,10 +165,10 @@
                   <!-- 专辑统计信息 -->
                   <div class="album-stats">
                     <span class="stat-item">
-                      总时长: {{ getTotalDuration(album.tracks) }}
+                      总时长: {{ calculateTotalDuration(album.tracks) }}
                     </span>
                     <span class="stat-item">
-                      总大小: {{ getTotalSize(album.tracks) }}
+                      总大小: {{ calculateTotalSize(album.tracks) }}
                     </span>
                   </div>
                 </div>
@@ -152,15 +214,8 @@
                     <template v-else-if="column.key === 'quality'">
                       <div class="quality-badge">
                         <img 
-                          v-if="record.soundQuality === 'Hi-Res'" 
-                          src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0OCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iMjQiIHJ4PSI0IiBmaWxsPSIjRkZENzAwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMwMDAwMDAiPkhpLVJlczwvdGV4dD48L3N2Zz4="
-                          alt="Hi-Res"
-                          class="quality-icon"
-                        />
-                        <img 
-                          v-else
-                          src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCA0OCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iMjQiIHJ4PSI0IiBmaWxsPSIjNDA5RUZGIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiNGRkZGRkYiPkNEKzwvdGV4dD48L3N2Zz4="
-                          alt="CD+"
+                          :src="getQualityIconUrl(record.soundQuality)"
+                          :alt="record.soundQuality"
                           class="quality-icon"
                         />
                       </div>
@@ -175,8 +230,8 @@
                     <template v-else-if="column.key === 'technical'">
                       <div class="technical-info">
                         <a-tag v-if="record.bitrate" color="blue" size="small">{{ record.bitrate }} kbps</a-tag>
-                        <a-tag v-if="record.sampleRate" color="green" size="small">{{ record.sampleRate }} Hz</a-tag>
-                        <a-tag v-if="record.bitDepth" color="purple" size="small">{{ record.bitDepth }} bit</a-tag>
+                        <a-tag v-if="record.sampleRate" color="green" size="small">{{ formatSampleRate(record.sampleRate) }}</a-tag>
+                        <a-tag v-if="record.bitDepth" color="purple" size="small">{{ formatBitDepth(record.bitDepth) }}</a-tag>
                       </div>
                     </template>
                     <template v-else-if="column.key === 'fileSize'">
@@ -217,10 +272,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { message } from 'ant-design-vue'
 import { 
   InboxOutlined, 
+  AudioOutlined,
   FileSearchOutlined, 
   ClearOutlined,
   FileImageOutlined,
@@ -230,75 +286,68 @@ import {
   SoundOutlined,
   ReloadOutlined,
   DownOutlined,
-  UpOutlined
+  UpOutlined,
+  FileOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  DatabaseOutlined
 } from '@ant-design/icons-vue'
 import { parseAudioFiles } from '@/api/audio'
+import { 
+  TABLE_COLUMNS, 
+  MESSAGES, 
+  AUDIO_FORMATS,
+  QUALITY_LABELS
+} from '@/constants/audio'
+import { 
+  formatDuration, 
+  formatFileSize,
+  calculateTotalDuration,
+  calculateTotalSize,
+  getQualityIcon,
+  isSupportedAudioFormat,
+  formatSampleRate,
+  formatBitDepth,
+  generateCoverPlaceholder,
+  getFileExtension
+} from '@/utils/audio'
 
 const fileList = ref([])
 const albums = ref([])
 const loading = ref(false)
-const uploadProgress = ref(0)
 const expandedAlbums = ref([]) // 展开的专辑索引
 const lyricsVisible = ref(false) // 歌词弹窗显示
 const currentTrack = ref(null) // 当前选中的音轨
 
-// 表格列定义
-const trackColumns = [
-  {
-    title: '音轨号',
-    key: 'index',
-    width: 60,
-    align: 'center'
-  },
-  {
-    title: '歌曲名称',
-    key: 'title',
-    ellipsis: true
-  },
-  {
-    title: '音质',
-    key: 'quality',
-    width: 100,
-    align: 'center'
-  },
-  {
-    title: '语种',
-    key: 'language',
-    width: 100,
-    align: 'center'
-  },
-  {
-    title: '时长',
-    key: 'duration',
-    width: 100,
-    align: 'center'
-  },
-  {
-    title: '音频参数',
-    key: 'technical',
-    width: 280,
-    align: 'center'
-  },
-  {
-    title: '文件大小',
-    key: 'fileSize',
-    width: 120,
-    align: 'center'
-  },
-  {
-    title: '操作',
-    key: 'action',
-    width: 100,
-    align: 'center'
-  }
-]
+// 概览统计
+const totalAlbums = computed(() => albums.value.length)
+const totalTracks = computed(() => albums.value.reduce((sum, a) => sum + ((a.tracks && a.tracks.length) || 0), 0))
+const totalDuration = computed(() => calculateTotalDuration(albums.value.flatMap(a => a.tracks || [])))
+const totalSize = computed(() => calculateTotalSize(albums.value.flatMap(a => a.tracks || [])))
+const totalFiles = computed(() => fileList.value.length)
+const totalSuccess = computed(() => totalTracks.value)
+const totalFailure = computed(() => Math.max(totalFiles.value - totalSuccess.value, 0))
+const totalFileSize = computed(() => {
+  return albums.value.length > 0 
+    ? calculateTotalSize(albums.value.flatMap(a => a.tracks || []))
+    : formatFileSize(fileList.value.reduce((sum, f) => sum + ((f.size) || (f.originFileObj && f.originFileObj.size) || 0), 0))
+})
+
+// 使用常量中的表格列配置
+const trackColumns = TABLE_COLUMNS
 
 // 上传前处理
 const beforeUpload = (file) => {
   // 只做前端验证，不实际上传
-  const isAudio = file.type.startsWith('audio/')
-  if (!isAudio) {
-    message.error(`${file.name} 不是音频文件`)
+  if (!file.type.startsWith(AUDIO_FORMATS.MIME_PREFIX)) {
+    message.error(MESSAGES.INVALID_FILE.replace('{filename}', file.name))
+    return false
+  }
+  
+  // 验证文件格式
+  if (!isSupportedAudioFormat(file.name)) {
+    message.error(MESSAGES.INVALID_FILE.replace('{filename}', file.name))
     return false
   }
   
@@ -329,19 +378,18 @@ const handleReparse = () => {
 // 解析音频文件
 const handleParse = async () => {
   if (fileList.value.length === 0) {
-    message.warning('请先上传音频文件')
+    message.warning(MESSAGES.NO_FILES)
     return
   }
   
   loading.value = true
-  uploadProgress.value = 0
   
   try {
     // 提取原始文件对象
     const files = fileList.value.map(item => item.originFileObj || item)
     
     // 显示上传提示
-    const hideLoading = message.loading('正在上传和解析文件，请耐心等待...', 0)
+    const hideLoading = message.loading(MESSAGES.PARSING, 0)
     
     const response = await parseAudioFiles(files)
     
@@ -349,42 +397,20 @@ const handleParse = async () => {
     
     if (response.code === 200) {
       albums.value = response.data
-      message.success(`成功解析 ${albums.value.length} 个专辑`)
+      message.success(MESSAGES.PARSE_SUCCESS.replace('{count}', albums.value.length))
     } else {
-      message.error(response.message || '解析失败')
+      message.error(response.message || MESSAGES.PARSE_ERROR)
     }
   } catch (error) {
     console.error('解析失败:', error)
     if (error.code === 'ECONNABORTED') {
-      message.error('请求超时，文件可能太大，请尝试减少文件数量')
+      message.error(MESSAGES.TIMEOUT_ERROR)
     } else {
-      message.error('解析失败，请检查文件格式或网络连接')
+      message.error(MESSAGES.PARSE_ERROR)
     }
   } finally {
     loading.value = false
-    uploadProgress.value = 0
   }
-}
-
-// 格式化时长
-const formatDuration = (seconds) => {
-  if (!seconds) return '--'
-  const minutes = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${minutes}:${secs.toString().padStart(2, '0')}`
-}
-
-// 格式化文件大小
-const formatFileSize = (bytes) => {
-  if (!bytes) return '--'
-  const units = ['B', 'KB', 'MB', 'GB']
-  let size = bytes
-  let unitIndex = 0
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex++
-  }
-  return `${size.toFixed(2)} ${units[unitIndex]}`
 }
 
 // 切换专辑展开/收起
@@ -397,22 +423,15 @@ const toggleAlbum = (index) => {
   }
 }
 
-// 计算专辑总时长
-const getTotalDuration = (tracks) => {
-  const total = tracks.reduce((sum, track) => sum + (track.duration || 0), 0)
-  return formatDuration(total)
-}
-
-// 计算专辑总大小
-const getTotalSize = (tracks) => {
-  const total = tracks.reduce((sum, track) => sum + (track.fileSize || 0), 0)
-  return formatFileSize(total)
-}
-
 // 显示歌词
 const showLyrics = (track) => {
   currentTrack.value = track
   lyricsVisible.value = true
+}
+
+// 获取音质图标
+const getQualityIconUrl = (quality) => {
+  return getQualityIcon(quality)
 }
 </script>
 
@@ -428,6 +447,12 @@ const showLyrics = (track) => {
 .action-buttons {
   margin-top: 16px;
   text-align: center;
+  padding: 12px 0;
+}
+
+.action-buttons .ant-button {
+  border-radius: 8px;
+  font-weight: 500;
 }
 
 .albums-container {
@@ -435,27 +460,265 @@ const showLyrics = (track) => {
 }
 
 .result-header {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  margin: 24px 0 16px;
+  padding: 0;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
+
+.result-header .ant-space {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.overview-stats {
+  margin: 16px 0 24px;
+  padding: 16px;
+  background: linear-gradient(180deg, #fafafa 0%, #fdfdfd 100%);
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+}
+
+.overview-stats .ant-space-item {
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 12px 18px;
+  min-width: 180px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.overview-stats .ant-statistic-title {
+  font-size: 12px;
+  color: #8c8c8c;
+  letter-spacing: 0.3px;
+}
+
+.overview-stats .ant-statistic-content {
+  font-weight: 600;
+  font-size: 22px;
+  color: #1f1f1f;
+}
+
+.no-cover-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+}
+
+.audio-parser {
+  padding: 24px;
+  background: #ffffff;
+  min-height: 100vh;
+}
+
+.audio-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  border: none;
+}
+
+.upload-area :deep(.ant-upload.ant-upload-drag) {
+  border: 2px dashed #8b5cf6;
+  background: #f8f5ff;
+  border-radius: 16px;
+  padding: 36px 24px;
+}
+
+.upload-icon {
+  color: #8b5cf6;
+  font-size: 42px;
+  margin-bottom: 8px;
+}
+
+.upload-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #4c1d95;
+  margin: 6px 0 4px;
+}
+
+.upload-hint {
+  color: #7c7c7c;
+  margin-bottom: 14px;
+}
+
+.select-file-btn {
+  background: linear-gradient(90deg, #8b5cf6 0%, #6d28d9 100%);
+  border: none;
+}
+
+.overview-stats {
+  margin: 16px 0 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.stat-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  min-width: 180px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  transition: all .3s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 4px 12px rgba(139,92,246,0.12);
+  border-color: #e5d9f6;
+  transform: translateY(-2px);
+}
+
+.stat-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon {
+  font-size: 20px;
+}
+
+/* 为不同类型的图标设置wrapper背景色和icon颜色 */
+.stat-icon-wrapper:has(.files-icon) {
+  background: #f3e8ff;
+}
+
+.stat-icon-wrapper .files-icon {
+  color: #8b5cf6;
+}
+
+.stat-icon-wrapper:has(.success-icon) {
+  background: #ecfdf5;
+}
+
+.stat-icon-wrapper .success-icon {
+  color: #10b981;
+}
+
+.stat-icon-wrapper:has(.failure-icon) {
+  background: #fef2f2;
+}
+
+.stat-icon-wrapper .failure-icon {
+  color: #ef4444;
+}
+
+.stat-icon-wrapper:has(.duration-icon) {
+  background: #f3e8ff;
+}
+
+.stat-icon-wrapper .duration-icon {
+  color: #8b5cf6;
+}
+
+.stat-icon-wrapper:has(.size-icon) {
+  background: #fffbeb;
+}
+
+.stat-icon-wrapper .size-icon {
+  color: #f59e0b;
+}
+
+.stat-title {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.file-list-cards {
+  margin: 16px 0 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all .2s ease;
+}
+
+.file-card:hover {
+  box-shadow: 0 4px 12px rgba(139,92,246,0.12);
+  transform: translateY(-1px);
+  border-color: #d9d6fe;
+}
+
+.file-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6d28d9;
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  flex-shrink: 0;
+}
+
+.file-info { flex: 1; }
+.file-name { font-size: 14px; font-weight: 600; color: #1f2937; }
+.file-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+.file-remove { color: #8b5cf6; font-size: 13px; }
 
 .album-list {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
+  margin-top: 24px;
 }
 
 .album-item {
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
   overflow: hidden;
-  transition: all 0.3s;
+  transition: all .3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .album-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 16px rgba(139,92,246,0.12);
+  border-color: #d9d6fe;
 }
 
 .album-header {

@@ -33,7 +33,7 @@
               <template v-if="column.key === 'action'">
                 <a-space size="small">
                   <a @click.stop="handleTypeEdit(record)">编辑</a>
-                  <a-popconfirm title="确定删除？" @confirm.stop="handleTypeDelete(record.id)">
+                  <a-popconfirm title="确定删除？" ok-text="确定" cancel-text="取消" @confirm.stop="handleTypeDelete(record.id)">
                     <a style="color: red" @click.stop>删除</a>
                   </a-popconfirm>
                 </a-space>
@@ -94,7 +94,7 @@
                 <template v-if="column.key === 'action'">
                   <a-space size="small">
                     <a @click="handleItemEdit(record)">编辑</a>
-                    <a-popconfirm title="确定删除？" @confirm="handleItemDelete(record.id)">
+                    <a-popconfirm title="确定删除？" ok-text="确定" cancel-text="取消" @confirm="handleItemDelete(record.id)">
                       <a style="color: red">删除</a>
                     </a-popconfirm>
                   </a-space>
@@ -110,6 +110,8 @@
     <a-modal
       v-model:open="typeModalVisible"
       :title="typeModalTitle"
+      ok-text="确定"
+      cancel-text="取消"
       @ok="handleTypeSubmit"
       @cancel="handleTypeCancel"
     >
@@ -130,6 +132,8 @@
     <a-modal
       v-model:open="itemModalVisible"
       :title="itemModalTitle"
+      ok-text="确定"
+      cancel-text="取消"
       @ok="handleItemSubmit"
       @cancel="handleItemCancel"
     >

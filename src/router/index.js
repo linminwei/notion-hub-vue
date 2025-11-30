@@ -63,7 +63,7 @@ const routes = [
         path: 'audio-parser',
         name: 'AudioParser',
         component: () => import('@/views/AudioParser.vue'),
-        meta: { title: '音频解析' }
+        meta: { title: '音乐同步' }
       }
     ]
   }
@@ -84,6 +84,8 @@ router.beforeEach(async (to, from, next) => {
       // 如果用户路由还没加载，先加载
       if (userStore.accessRoutes.length === 0) {
         await userStore.loadUserRoutes()
+        // 获取用户信息（包含权限，修复刷新后权限丢失问题）
+        await userStore.getUserInfo()
       }
 
       // 检查是否有访问权限

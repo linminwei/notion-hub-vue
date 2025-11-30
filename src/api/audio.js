@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { FILE_LIMITS } from '@/constants/audio'
 
 /**
  * 解析音频文件元数据
@@ -16,7 +17,7 @@ export function parseAudioFiles(files) {
     headers: {
       'Content-Type': 'multipart/form-data'
     },
-    timeout: 600000 // 10分钟超时，适用于大文件上传
+    timeout: FILE_LIMITS.UPLOAD_TIMEOUT
   })
 }
 

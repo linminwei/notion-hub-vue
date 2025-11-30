@@ -2,7 +2,13 @@
   <div class="menu-manage">
     <a-card>
       <a-space class="mb-16">
-        <a-button type="primary" @click="handleAdd">新增菜单</a-button>
+        <a-button 
+          v-if="userStore.hasPermission('system:menu:add')"
+          type="primary" 
+          @click="handleAdd"
+        >
+          新增菜单
+        </a-button>
       </a-space>
 
       <a-table
@@ -34,8 +40,14 @@
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
-              <a @click="handleEdit(record)">编辑</a>
-              <a-popconfirm title="确定删除?" @confirm="handleDelete(record.id)">
+              <a v-if="userStore.hasPermission('system:menu:edit')" @click="handleEdit(record)">编辑</a>
+              <a-popconfirm 
+                v-if="userStore.hasPermission('system:menu:delete')"
+                title="确定删除?" 
+                ok-text="确定"
+                cancel-text="取消"
+                @confirm="handleDelete(record.id)"
+              >
                 <a style="color: red">删除</a>
               </a-popconfirm>
             </a-space>
@@ -48,6 +60,8 @@
     <a-modal
       v-model:open="modalVisible"
       :title="modalTitle"
+      ok-text="确定"
+      cancel-text="取消"
       @ok="handleSubmit"
       width="600px"
     >
@@ -112,8 +126,10 @@ import { getMenuTree, addMenu, updateMenu, deleteMenu } from '@/api/menu'
 import IconSelector from '@/components/IconSelector.vue'
 import * as antIcons from '@ant-design/icons-vue'
 import { dict } from '@/composables/dict.js'
+import { useUserStore } from '@/stores/user'
 
-
+// 用户权限store
+const userStore = useUserStore()
 // 使用字典 Hook
 const { getDictByCode, getDictLabel } = dict()
 
@@ -225,6 +241,12 @@ const handleSubmit = async () => {
     }
     modalVisible.value = false
     loadData()
+    // 刷新菜单和权限，然后重新加载页面
+    await userStore.loadUserRoutes()
+    await userStore.getUserInfo()
+    setTimeout(() => {
+      window.location.reload()
+    }, 500)
   } catch (error) {
     console.error(error)
   }
@@ -235,6 +257,12 @@ const handleDelete = async (id) => {
     await deleteMenu(id)
     message.success('删除成功')
     loadData()
+    // 刷新菜单和权限，然后重新加载页面
+    await userStore.loadUserRoutes()
+    await userStore.getUserInfo()
+    setTimeout(() => {
+      window.location.reload()
+    }, 500)
   } catch (error) {
     console.error(error)
   }

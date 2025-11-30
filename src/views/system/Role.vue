@@ -2,7 +2,13 @@
   <div class="role-manage">
     <a-card>
       <a-space class="mb-16">
-        <a-button type="primary" @click="handleAdd">新增角色</a-button>
+        <a-button 
+          v-if="userStore.hasPermission('system:role:add')"
+          type="primary" 
+          @click="handleAdd"
+        >
+          新增角色
+        </a-button>
       </a-space>
 
       <a-table
@@ -21,9 +27,15 @@
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
-              <a @click="handleEdit(record)">编辑</a>
-              <a @click="handlePermission(record)">分配权限</a>
-              <a-popconfirm title="确定删除?" @confirm="handleDelete(record.id)">
+              <a v-if="userStore.hasPermission('system:role:edit')" @click="handleEdit(record)">编辑</a>
+              <a v-if="userStore.hasPermission('system:role:permission')" @click="handlePermission(record)">分配权限</a>
+              <a-popconfirm 
+                v-if="userStore.hasPermission('system:role:delete')"
+                title="确定删除?" 
+                ok-text="确定"
+                cancel-text="取消"
+                @confirm="handleDelete(record.id)"
+              >
                 <a style="color: red">删除</a>
               </a-popconfirm>
             </a-space>
@@ -36,6 +48,8 @@
     <a-modal
       v-model:open="modalVisible"
       :title="modalTitle"
+      ok-text="确定"
+      cancel-text="取消"
       @ok="handleSubmit"
     >
       <a-form :model="formData" :label-col="{ span: 6 }">
@@ -66,6 +80,8 @@
     <a-modal
       v-model:open="permissionVisible"
       title="分配权限"
+      ok-text="确定"
+      cancel-text="取消"
       @ok="handlePermissionSubmit"
       width="600px"
     >
@@ -85,8 +101,10 @@ import { message } from 'ant-design-vue'
 import { getRolePage, addRole, updateRole, deleteRole, assignPermissions, getRoleMenuIds } from '@/api/role'
 import { getMenuTree } from '@/api/menu'
 import { dict } from '@/composables/dict.js'
+import { useUserStore } from '@/stores/user'
 
-
+// 用户权限store
+const userStore = useUserStore()
 // 使用字典 Hook
 const { getDictByCode, getDictLabel } = dict()
 
@@ -227,6 +245,13 @@ const handlePermissionSubmit = async () => {
     await assignPermissions(currentRoleId.value, checkedKeys.value)
     message.success('权限分配成功')
     permissionVisible.value = false
+    
+    // 刷新菜单和权限（如果当前用户分配的是自己的角色）
+    await userStore.loadUserRoutes()
+    await userStore.getUserInfo()
+    
+    // 刷新页面以立即显示最新的菜单和按钮权限
+    window.location.reload()
   } catch (error) {
     console.error(error)
   }

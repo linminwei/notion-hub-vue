@@ -9,7 +9,14 @@
         <a-form-item>
           <a-button type="primary" @click="loadData">查询</a-button>
           <a-button style="margin-left: 8px" @click="handleReset">重置</a-button>
-          <a-button type="primary" style="margin-left: 8px" @click="handleAdd">新增</a-button>
+          <a-button 
+            v-if="userStore.hasPermission('system:user:add')"
+            type="primary" 
+            style="margin-left: 8px" 
+            @click="handleAdd"
+          >
+            新增
+          </a-button>
         </a-form-item>
       </a-form>
 
@@ -32,11 +39,21 @@
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
-              <a @click="handleEdit(record)">编辑</a>
-              <a @click="handleResetPassword(record)">重置密码</a>
-              <a-popconfirm title="确定删除?" @confirm="handleDelete(record.id)">
+              <a v-if="userStore.hasPermission('system:user:edit')" @click="handleEdit(record)">编辑</a>
+              <a v-if="userStore.hasPermission('system:user:edit')" @click="handleResetPassword(record)">重置密码</a>
+              <a-popconfirm 
+                v-if="userStore.hasPermission('system:user:delete')"
+                title="确定删除?" 
+                ok-text="确定"
+                cancel-text="取消"
+                @confirm="handleDelete(record.id)"
+              >
                 <a style="color: red">删除</a>
               </a-popconfirm>
+            
+              <span v-if="!userStore.hasPermission('system:user:edit') && !userStore.hasPermission('system:user:delete')" style="color: #999;">
+                无操作权限
+              </span>
             </a-space>
           </template>
         </template>
@@ -47,6 +64,8 @@
     <a-modal
       v-model:open="modalVisible"
       :title="modalTitle"
+      ok-text="确定"
+      cancel-text="取消"
       @ok="handleSubmit"
       @cancel="handleCancel"
     >
@@ -101,6 +120,10 @@ import { getUserPage, addUser, updateUser, deleteUser, getUserRoles, resetUserPa
 import ResponsiveTable from '@/components/ResponsiveTable.vue'
 import { getAllRoles } from '@/api/role'
 import { dict } from '@/composables/dict.js'
+import { useUserStore } from '@/stores/user'
+
+// 用户权限store
+const userStore = useUserStore()
 
 // 使用字典 Hook
 const { getDictByCode, getDictLabel } = dict()
