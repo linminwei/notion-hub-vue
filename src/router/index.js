@@ -54,22 +54,16 @@ const routes = [
         meta: { title: '字典管理' }
       },
       {
-        path: 'notion/workspace',
-        name: 'NotionWorkspace',
-        component: () => import('@/views/notion/NotionWorkspace.vue'),
-        meta: { title: 'Notion工作区管理' }
-      },
-      {
-        path: 'notion/integration',
-        name: 'NotionIntegration',
-        component: () => import('@/views/notion/NotionIntegration.vue'),
-        meta: { title: 'Notion集成管理' }
-      },
-      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
         meta: { title: '个人中心' }
+      },
+      {
+        path: 'audio-parser',
+        name: 'AudioParser',
+        component: () => import('@/views/AudioParser.vue'),
+        meta: { title: '音频解析' }
       }
     ]
   }
