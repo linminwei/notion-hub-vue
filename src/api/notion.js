@@ -63,7 +63,7 @@ export function testConnection(data) {
  */
 export function listMappings(datasourceId) {
   return request({
-    url: `/notion/mapping/list/${datasourceId}`,
+    url: `/notion/field/list/${datasourceId}`,
     method: 'get'
   })
 }
@@ -73,18 +73,8 @@ export function listMappings(datasourceId) {
  */
 export function batchSaveMappings(datasourceId, data) {
   return request({
-    url: `/notion/mapping/batch/${datasourceId}`,
+    url: `/notion/field/batch/${datasourceId}`,
     method: 'post',
     data
-  })
-}
-
-/**
- * 删除字段映射
- */
-export function deleteMapping(id) {
-  return request({
-    url: `/notion/mapping/delete/${id}`,
-    method: 'delete'
   })
 }

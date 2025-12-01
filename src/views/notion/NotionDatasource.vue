@@ -32,16 +32,16 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="record.status === 1 ? 'success' : 'error'">
-              {{ record.status === 1 ? '启用' : '禁用' }}
+              {{ getDictLabel(statusDict, record.status) }}
             </a-tag>
           </template>
           <template v-else-if="column.key === 'token'">
-            <span v-if="!visibleToken">{{ maskToken(record.token) }}</span>
+            <span>{{ maskToken(record.token) }}</span>
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space>
-              <a @click="handleTestConnection(record)">测试连接</a>
-              <a @click="handleFieldMapping(record)">字段映射</a>
+              <a v-if="userStore.hasPermission('notion:datasource:test-connection')" @click="handleTestConnection(record)">测试连接</a>
+              <a v-if="userStore.hasPermission('notion:field:list')" @click="handleFieldMapping(record)">字段映射</a>
               <a v-if="userStore.hasPermission('notion:datasource:edit')" @click="handleEdit(record)">编辑</a>
               <a-popconfirm
                 v-if="userStore.hasPermission('notion:datasource:delete')"
@@ -83,8 +83,13 @@
         </a-form-item>
         <a-form-item label="状态">
           <a-radio-group v-model:value="formData.status">
-            <a-radio :value="1">启用</a-radio>
-            <a-radio :value="0">禁用</a-radio>
+            <a-radio
+                v-for="item in statusDict"
+                :key="item.value"
+                :value="parseInt(item.value)"
+            >
+              {{ item.label }}
+            </a-radio>
           </a-radio-group>
         </a-form-item>
       </a-form>
@@ -93,7 +98,6 @@
     <!-- 字段映射对话框 -->
     <a-modal
       v-model:open="mappingVisible"
-      title="字段映射配置"
       ok-text="保存"
       cancel-text="取消"
       @ok="handleSaveMappings"
@@ -111,41 +115,34 @@
           size="small"
         >
           <template #bodyCell="{ column, record, index }">
-            <template v-if="column.key === 'frontendField'">
+            <template v-if="column.key === 'fieldName'">
               <a-input 
-                v-model:value="record.frontendField" 
+                v-model:value="record.fieldName"
                 placeholder="如: title"
                 size="small"
               />
             </template>
-            <template v-else-if="column.key === 'notionProperty'">
+            <template v-else-if="column.key === 'propertyName'">
               <a-input 
-                v-model:value="record.notionProperty" 
+                v-model:value="record.propertyName"
                 placeholder="如: 标题"
                 size="small"
               />
             </template>
-            <template v-else-if="column.key === 'notionPropertyType'">
-              <a-select 
-                v-model:value="record.notionPropertyType" 
-                placeholder="请选择"
-                size="small"
-                style="width: 100%"
-              >
-                <a-select-option value="title">标题</a-select-option>
-                <a-select-option value="rich_text">富文本</a-select-option>
-                <a-select-option value="number">数字</a-select-option>
-                <a-select-option value="select">单选</a-select-option>
-                <a-select-option value="multi_select">多选</a-select-option>
-                <a-select-option value="date">日期</a-select-option>
-                <a-select-option value="checkbox">复选框</a-select-option>
-                <a-select-option value="url">URL</a-select-option>
-                <a-select-option value="email">邮箱</a-select-option>
-                <a-select-option value="phone_number">电话</a-select-option>
+            <template v-else-if="column.key === 'propertyType'">
+              <a-select
+                  v-model:value="record.propertyType"
+                  placeholder="请选择"
+                  size="small"
+                  style="width: 100%">
+                <a-select-option
+                    v-for="item in propertyTypeDict"
+                    :key="item.value"
+                    :value="item.value"
+                >
+                  {{ item.label }}
+                </a-select-option>
               </a-select>
-            </template>
-            <template v-else-if="column.key === 'isRequired'">
-              <a-checkbox v-model:checked="record.isRequiredBool" />
             </template>
             <template v-else-if="column.key === 'action'">
               <a-button 
@@ -177,6 +174,14 @@ import {
   batchSaveMappings
 } from '@/api/notion.js'
 import { useUserStore } from '@/stores/user.js'
+import { dict } from '@/composables/dict.js'
+
+// 使用字典 Hook
+const { getDictByCode, getDictLabel } = dict()
+
+// 字典数据
+const statusDict = ref([])
+const propertyTypeDict = ref([])
 
 // 用户权限store
 const userStore = useUserStore()
@@ -228,10 +233,9 @@ const currentDatasource = ref(null)
 const mappingData = ref([])
 let mappingIdCounter = 1
 const mappingColumns = [
-  { title: '前端字段', key: 'frontendField', width: 200 },
-  { title: 'Notion属性', key: 'notionProperty', width: 200 },
-  { title: 'Notion属性类型', key: 'notionPropertyType', width: 180 },
-  { title: '是否必填', key: 'isRequired', width: 100 },
+  { title: '前端字段', key: 'fieldName', width: 200 },
+  { title: 'Notion属性', key: 'propertyName', width: 200 },
+  { title: 'Notion属性类型', key: 'propertyType', width: 180 },
   { title: '操作', key: 'action', width: 100 }
 ]
 
@@ -335,21 +339,6 @@ const maskToken = (token) => {
   return token.substring(0, 8) + '****' + token.substring(token.length - 4)
 }
 
-// 切换Token可见性
-const toggleTokenVisibility = (recordId) => {
-  visibleTokens[recordId] = !visibleTokens[recordId]
-}
-
-// 复制Token
-const copyToken = (token) => {
-  if (!token) return
-  navigator.clipboard.writeText(token).then(() => {
-    message.success('Token已复制到剪贴板')
-  }).catch(() => {
-    message.error('复制失败')
-  })
-}
-
 // 测试连接
 const handleTestConnection = async (record) => {
   const loading = message.loading('正在测试连接...', 0)
@@ -359,14 +348,10 @@ const handleTestConnection = async (record) => {
       token: record.token
     })
     loading()
-    if (res.data) {
-      message.success('连接测试成功！')
-    } else {
-      message.error('连接测试失败，请检查数据源ID和Token是否正确')
-    }
+    message.success('数据源连接测试成功！' )
   } catch (error) {
     loading()
-    message.error('连接测试失败: ' + (error.message || '网络错误'))
+    console.error(error)
   }
 }
 
@@ -376,10 +361,9 @@ const handleFieldMapping = async (record) => {
   try {
     const res = await listMappings(record.id)
     if (res.data && res.data.length > 0) {
-      // 加载已有映射，并转换isRequired为Boolean
+      // 加载已有映射
       mappingData.value = res.data.map(item => ({
-        ...item,
-        isRequiredBool: item.isRequired === 1
+        ...item
       }))
     } else {
       // 没有映射，初始化空数组
@@ -387,7 +371,6 @@ const handleFieldMapping = async (record) => {
     }
     mappingVisible.value = true
   } catch (error) {
-    message.error('加载字段映射失败')
     console.error(error)
   }
 }
@@ -396,12 +379,9 @@ const handleFieldMapping = async (record) => {
 const handleAddMapping = () => {
   mappingData.value.push({
     id: `temp_${mappingIdCounter++}`,
-    frontendField: '',
-    notionProperty: '',
-    notionPropertyType: '',
-    isRequiredBool: false,
-    status: 1,
-    sort: mappingData.value.length
+    fieldName: '',
+    propertyName: '',
+    propertyType: null
   })
 }
 
@@ -416,15 +396,15 @@ const handleSaveMappings = async () => {
     // 校验必填字段
     for (let i = 0; i < mappingData.value.length; i++) {
       const item = mappingData.value[i]
-      if (!item.frontendField) {
+      if (!item.fieldName) {
         message.warning(`第${i + 1}行的前端字段不能为空`)
         return
       }
-      if (!item.notionProperty) {
+      if (!item.propertyName) {
         message.warning(`第${i + 1}行的Notion属性不能为空`)
         return
       }
-      if (!item.notionPropertyType) {
+      if (!item.propertyType) {
         message.warning(`第${i + 1}行的Notion属性类型不能为空`)
         return
       }
@@ -432,12 +412,9 @@ const handleSaveMappings = async () => {
 
     // 转换数据格式
     const saveData = mappingData.value.map((item, index) => ({
-      frontendField: item.frontendField,
-      notionProperty: item.notionProperty,
-      notionPropertyType: item.notionPropertyType,
-      isRequired: item.isRequiredBool ? 1 : 0,
-      status: 1,
-      sort: index
+      fieldName: item.fieldName,
+      propertyName: item.propertyName,
+      propertyType: item.propertyType,
     }))
 
     await batchSaveMappings(currentDatasource.value.id, saveData)
@@ -449,7 +426,10 @@ const handleSaveMappings = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 加载字典数据
+  statusDict.value = await getDictByCode('status')
+  propertyTypeDict.value = await getDictByCode('notion_property_type')
   loadData()
 })
 </script>
