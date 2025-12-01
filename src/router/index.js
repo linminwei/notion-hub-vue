@@ -62,8 +62,14 @@ const routes = [
       {
         path: 'audio-parser',
         name: 'AudioParser',
-        component: () => import('@/views/AudioParser.vue'),
+        component: () => import('@/views/notion/AudioParser.vue'),
         meta: { title: '音乐同步' }
+      },
+      {
+        path: 'notion/datasource',
+        name: 'NotionDatasource',
+        component: () => import('@/views/notion/NotionDatasource.vue'),
+        meta: { title: '数据源管理' }
       }
     ]
   }

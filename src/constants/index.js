@@ -69,6 +69,14 @@ export const API_PATHS = {
       BY_ID: (id) => `/dict/item/${id}`,
       BATCH: '/dict/item/batch'
     }
+  },
+  // Notion相关
+  NOTION: {
+    DATASOURCE: {
+      PAGE: '/notion/datasource/page',
+      ADD: '/notion/datasource/add',
+      UPDATE: '/notion/datasource/update'
+    }
   }
 }
 

@@ -293,13 +293,13 @@ import {
   ClockCircleOutlined,
   DatabaseOutlined
 } from '@ant-design/icons-vue'
-import { parseAudioFiles } from '@/api/audio'
+import { parseAudioFiles } from '@/api/audio.js'
 import { 
   TABLE_COLUMNS, 
   MESSAGES, 
   AUDIO_FORMATS,
   QUALITY_LABELS
-} from '@/constants/audio'
+} from '@/constants/audio.js'
 import { 
   formatDuration, 
   formatFileSize,
@@ -311,7 +311,7 @@ import {
   formatBitDepth,
   generateCoverPlaceholder,
   getFileExtension
-} from '@/utils/audio'
+} from '@/utils/audio.js'
 
 const fileList = ref([])
 const albums = ref([])
@@ -321,10 +321,8 @@ const lyricsVisible = ref(false) // 歌词弹窗显示
 const currentTrack = ref(null) // 当前选中的音轨
 
 // 概览统计
-const totalAlbums = computed(() => albums.value.length)
 const totalTracks = computed(() => albums.value.reduce((sum, a) => sum + ((a.tracks && a.tracks.length) || 0), 0))
 const totalDuration = computed(() => calculateTotalDuration(albums.value.flatMap(a => a.tracks || [])))
-const totalSize = computed(() => calculateTotalSize(albums.value.flatMap(a => a.tracks || [])))
 const totalFiles = computed(() => fileList.value.length)
 const totalSuccess = computed(() => totalTracks.value)
 const totalFailure = computed(() => Math.max(totalFiles.value - totalSuccess.value, 0))
