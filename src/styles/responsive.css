@@ -70,20 +70,19 @@
     margin: 4px 0 !important;
   }
   
-  /* 表格组件 - 启用横向滚动 */
+/* 表格组件 - 启用横向滚动 */
   .ant-table-wrapper {
     overflow-x: auto !important;
   }
-  
   .ant-table {
     font-size: var(--font-size-mobile) !important;
     min-width: 600px; /* 确保表格不会被压缩过度 */
   }
-  
   .ant-table-thead > tr > th,
   .ant-table-tbody > tr > td {
     padding: 8px 4px !important;
     font-size: var(--font-size-mobile) !important;
+    white-space: nowrap; /* 移动端同样避免标题换行 */
   }
   
   /* 隐藏非必要列 */
@@ -196,7 +195,20 @@
   .ant-card {
     margin: var(--spacing-desktop) 0;
   }
-  
+
+  /* 表格：标题与单元格默认不换行，超出时通过横向滚动展示 */
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .ant-table-thead > tr > th {
+    white-space: nowrap;
+  }
+
+  .ant-table-tbody > tr > td {
+    white-space: nowrap;
+  }
+
   /* 大屏幕内容最大宽度限制 */
   .content-max-width {
     max-width: 1600px;
