@@ -7,11 +7,11 @@ import { API_PATHS } from '@/constants/index'
 /**
  * 分页查询数据源
  */
-export function pageDatasource(data) {
+export function pageDatasource(params) {
   return request({
     url: API_PATHS.NOTION.DATASOURCE.PAGE,
     method: 'get',
-    data
+    params
   })
 }
 
@@ -34,5 +34,15 @@ export function updateDatasource(data) {
     url: API_PATHS.NOTION.DATASOURCE.UPDATE,
     method: 'put',
     data
+  })
+}
+
+/**
+ * 删除数据源
+ */
+export function deleteDatasource(id) {
+  return request({
+    url: `/notion/datasource/delete/${id}`,
+    method: 'delete'
   })
 }
