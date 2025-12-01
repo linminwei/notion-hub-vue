@@ -46,3 +46,45 @@ export function deleteDatasource(id) {
     method: 'delete'
   })
 }
+
+/**
+ * 测试连接
+ */
+export function testConnection(data) {
+  return request({
+    url: '/notion/datasource/test',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 查询字段映射列表
+ */
+export function listMappings(datasourceId) {
+  return request({
+    url: `/notion/mapping/list/${datasourceId}`,
+    method: 'get'
+  })
+}
+
+/**
+ * 批量保存字段映射
+ */
+export function batchSaveMappings(datasourceId, data) {
+  return request({
+    url: `/notion/mapping/batch/${datasourceId}`,
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 删除字段映射
+ */
+export function deleteMapping(id) {
+  return request({
+    url: `/notion/mapping/delete/${id}`,
+    method: 'delete'
+  })
+}
