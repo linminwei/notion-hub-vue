@@ -41,7 +41,6 @@
           <template v-else-if="column.key === 'action'">
             <a-space>
               <a v-if="userStore.hasPermission('notion:datasource:test-connection')" @click="handleTestConnection(record)">测试连接</a>
-              <a v-if="userStore.hasPermission('notion:field:list')" @click="handleFieldMapping(record)">字段映射</a>
               <a v-if="userStore.hasPermission('notion:datasource:edit')" @click="handleEdit(record)">编辑</a>
               <a-popconfirm
                 v-if="userStore.hasPermission('notion:datasource:delete')"
@@ -94,70 +93,6 @@
         </a-form-item>
       </a-form>
     </a-modal>
-
-    <!-- 字段映射对话框 -->
-    <a-modal
-      v-model:open="mappingVisible"
-      ok-text="保存"
-      cancel-text="取消"
-      @ok="handleSaveMappings"
-      width="900px"
-    >
-      <div class="mapping-content">
-        <a-button type="primary" @click="handleAddMapping" style="margin-bottom: 16px">
-          新增字段映射
-        </a-button>
-        <a-table
-          :columns="mappingColumns"
-          :data-source="mappingData"
-          :pagination="false"
-          row-key="id"
-          size="small"
-        >
-          <template #bodyCell="{ column, record, index }">
-            <template v-if="column.key === 'fieldName'">
-              <a-input 
-                v-model:value="record.fieldName"
-                placeholder="如: title"
-                size="small"
-              />
-            </template>
-            <template v-else-if="column.key === 'propertyName'">
-              <a-input 
-                v-model:value="record.propertyName"
-                placeholder="如: 标题"
-                size="small"
-              />
-            </template>
-            <template v-else-if="column.key === 'propertyType'">
-              <a-select
-                  v-model:value="record.propertyType"
-                  placeholder="请选择"
-                  size="small"
-                  style="width: 100%">
-                <a-select-option
-                    v-for="item in propertyTypeDict"
-                    :key="item.value"
-                    :value="item.value"
-                >
-                  {{ item.label }}
-                </a-select-option>
-              </a-select>
-            </template>
-            <template v-else-if="column.key === 'action'">
-              <a-button 
-                type="link" 
-                danger 
-                size="small"
-                @click="handleDeleteMapping(index)"
-              >
-                删除
-              </a-button>
-            </template>
-          </template>
-        </a-table>
-      </div>
-    </a-modal>
   </div>
 </template>
 
@@ -170,8 +105,6 @@ import {
   updateDatasource, 
   deleteDatasource,
   testConnection,
-  listMappings,
-  batchSaveMappings
 } from '@/api/notion.js'
 import { useUserStore } from '@/stores/user.js'
 import { dict } from '@/composables/dict.js'
@@ -227,17 +160,6 @@ const formData = reactive({
   status: 1
 })
 
-// 字段映射相关
-const mappingVisible = ref(false)
-const currentDatasource = ref(null)
-const mappingData = ref([])
-let mappingIdCounter = 1
-const mappingColumns = [
-  { title: '前端字段', key: 'fieldName', width: 200 },
-  { title: 'Notion属性', key: 'propertyName', width: 200 },
-  { title: 'Notion属性类型', key: 'propertyType', width: 180 },
-  { title: '操作', key: 'action', width: 100 }
-]
 
 // 加载数据
 const loadData = async () => {
@@ -355,76 +277,6 @@ const handleTestConnection = async (record) => {
   }
 }
 
-// 打开字段映射对话框
-const handleFieldMapping = async (record) => {
-  currentDatasource.value = record
-  try {
-    const res = await listMappings(record.id)
-    if (res.data && res.data.length > 0) {
-      // 加载已有映射
-      mappingData.value = res.data.map(item => ({
-        ...item
-      }))
-    } else {
-      // 没有映射，初始化空数组
-      mappingData.value = []
-    }
-    mappingVisible.value = true
-  } catch (error) {
-    console.error(error)
-  }
-}
-
-// 新增字段映射
-const handleAddMapping = () => {
-  mappingData.value.push({
-    id: `temp_${mappingIdCounter++}`,
-    fieldName: '',
-    propertyName: '',
-    propertyType: null
-  })
-}
-
-// 删除字段映射
-const handleDeleteMapping = (index) => {
-  mappingData.value.splice(index, 1)
-}
-
-// 保存字段映射
-const handleSaveMappings = async () => {
-  try {
-    // 校验必填字段
-    for (let i = 0; i < mappingData.value.length; i++) {
-      const item = mappingData.value[i]
-      if (!item.fieldName) {
-        message.warning(`第${i + 1}行的前端字段不能为空`)
-        return
-      }
-      if (!item.propertyName) {
-        message.warning(`第${i + 1}行的Notion属性不能为空`)
-        return
-      }
-      if (!item.propertyType) {
-        message.warning(`第${i + 1}行的Notion属性类型不能为空`)
-        return
-      }
-    }
-
-    // 转换数据格式
-    const saveData = mappingData.value.map((item, index) => ({
-      fieldName: item.fieldName,
-      propertyName: item.propertyName,
-      propertyType: item.propertyType,
-    }))
-
-    await batchSaveMappings(currentDatasource.value.id, saveData)
-    message.success('字段映射保存成功')
-    mappingVisible.value = false
-  } catch (error) {
-    message.error('保存失败: ' + (error.message || '网络错误'))
-    console.error(error)
-  }
-}
 
 onMounted(async () => {
   // 加载字典数据
@@ -440,23 +292,6 @@ onMounted(async () => {
 }
 
 
-.token-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.visible-token {
-  font-family: 'Courier New', monospace;
-  color: #ff7a45;
-  word-break: break-all;
-}
-
-.token-actions {
-  display: flex;
-  gap: 0;
-}
-
 .token-actions :deep(.ant-btn) {
   padding: 2px 6px;
   color: #1890ff;
@@ -464,10 +299,5 @@ onMounted(async () => {
 
 .token-actions :deep(.ant-btn:hover) {
   color: #40a9ff;
-}
-
-.mapping-content {
-  max-height: 500px;
-  overflow-y: auto;
 }
 </style>

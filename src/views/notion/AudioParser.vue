@@ -61,7 +61,10 @@
               <template #icon><ReloadOutlined /></template>
               重新上传
             </a-button>
-            <!-- 解析结果标题已移除 -->
+            <a-button type="primary" @click="showSyncDialog" size="large" style="background: #8b5cf6; border-color: #8b5cf6;">
+              <template #icon><CloudUploadOutlined /></template>
+              同步到Notion
+            </a-button>
           </a-space>
         </div>
         <div class="overview-stats">
@@ -268,6 +271,92 @@
         <pre class="lyrics-content">{{ currentTrack?.lyrics || '暂无歌词' }}</pre>
       </div>
     </a-modal>
+
+    <!-- 同步到Notion对话框 -->
+    <a-modal
+      v-model:open="syncDialogVisible"
+      title="同步音乐到Notion"
+      width="700px"
+      ok-text="开始同步"
+      cancel-text="取消"
+      @ok="handleSync"
+      :confirm-loading="syncLoading"
+    >
+      <div class="sync-dialog-content">
+        <a-radio-group v-model:value="syncMode" style="width: 100%; margin-bottom: 20px;">
+          <a-space direction="vertical" style="width: 100%;">
+            <a-radio value="all">同步全部专辑（{{ albums.length }} 个专辑，共 {{ totalTracks }} 首歌曲）</a-radio>
+            <a-radio value="artist">按歌手选择同步</a-radio>
+            <a-radio value="album">按专辑选择同步</a-radio>
+            <a-radio value="track">按歌曲选择同步</a-radio>
+          </a-space>
+        </a-radio-group>
+
+        <!-- 按歌手选择 -->
+        <div v-if="syncMode === 'artist'" class="selection-area">
+          <div class="selection-label">选择歌手：</div>
+          <a-checkbox-group v-model:value="selectedArtists" style="width: 100%;">
+            <a-row>
+              <a-col :span="12" v-for="artist in artistList" :key="artist" style="margin-bottom: 8px;">
+                <a-checkbox :value="artist">{{ artist }}</a-checkbox>
+              </a-col>
+            </a-row>
+          </a-checkbox-group>
+        </div>
+
+        <!-- 按专辑选择 -->
+        <div v-if="syncMode === 'album'" class="selection-area">
+          <div class="selection-label">选择专辑：</div>
+          <a-checkbox-group v-model:value="selectedAlbums" style="width: 100%;">
+            <a-space direction="vertical" style="width: 100%;">
+              <a-checkbox 
+                v-for="(album, index) in albums" 
+                :key="index" 
+                :value="index"
+              >
+                {{ album.albumName }} - {{ album.artist }} ({{ album.tracks.length }} 首)
+              </a-checkbox>
+            </a-space>
+          </a-checkbox-group>
+        </div>
+
+        <!-- 按歌曲选择 -->
+        <div v-if="syncMode === 'track'" class="selection-area">
+          <div class="selection-label">选择歌曲：</div>
+          <div class="track-selection-wrapper">
+            <div v-for="(album, albumIndex) in albums" :key="albumIndex" class="album-track-group">
+              <div class="album-group-title">{{ album.albumName }}</div>
+              <a-checkbox-group v-model:value="selectedTracks" style="width: 100%;">
+                <a-space direction="vertical" style="width: 100%;">
+                  <a-checkbox 
+                    v-for="(track, trackIndex) in album.tracks" 
+                    :key="`${albumIndex}-${trackIndex}`"
+                    :value="`${albumIndex}-${trackIndex}`"
+                  >
+                    {{ track.track || (trackIndex + 1) }}. {{ track.title || track.fileName }}
+                  </a-checkbox>
+                </a-space>
+              </a-checkbox-group>
+            </div>
+          </div>
+        </div>
+
+        <a-alert 
+          v-if="syncMode !== 'all' && getSelectedCount() === 0" 
+          message="请至少选择一项" 
+          type="warning" 
+          show-icon 
+          style="margin-top: 16px;"
+        />
+        <a-alert 
+          v-else-if="syncMode !== 'all'" 
+          :message="`已选择 ${getSelectedCount()} 项`" 
+          type="info" 
+          show-icon 
+          style="margin-top: 16px;"
+        />
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -291,9 +380,11 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
+  CloudUploadOutlined
 } from '@ant-design/icons-vue'
 import { parseAudioFiles } from '@/api/audio.js'
+import { syncMusicToNotion } from '@/api/notion.js'
 import { 
   TABLE_COLUMNS, 
   MESSAGES, 
@@ -320,6 +411,14 @@ const expandedAlbums = ref([]) // 展开的专辑索引
 const lyricsVisible = ref(false) // 歌词弹窗显示
 const currentTrack = ref(null) // 当前选中的音轨
 
+// 同步相关状态
+const syncDialogVisible = ref(false)
+const syncLoading = ref(false)
+const syncMode = ref('all') // all | artist | album | track
+const selectedArtists = ref([])
+const selectedAlbums = ref([])
+const selectedTracks = ref([])
+
 // 概览统计
 const totalTracks = computed(() => albums.value.reduce((sum, a) => sum + ((a.tracks && a.tracks.length) || 0), 0))
 const totalDuration = computed(() => calculateTotalDuration(albums.value.flatMap(a => a.tracks || [])))
@@ -330,6 +429,15 @@ const totalFileSize = computed(() => {
   return albums.value.length > 0 
     ? calculateTotalSize(albums.value.flatMap(a => a.tracks || []))
     : formatFileSize(fileList.value.reduce((sum, f) => sum + ((f.size) || (f.originFileObj && f.originFileObj.size) || 0), 0))
+})
+
+// 歌手列表（去重）
+const artistList = computed(() => {
+  const artists = new Set()
+  albums.value.forEach(album => {
+    if (album.artist) artists.add(album.artist)
+  })
+  return Array.from(artists).sort()
 })
 
 // 使用常量中的表格列配置
@@ -430,6 +538,107 @@ const showLyrics = (track) => {
 // 获取音质图标
 const getQualityIconUrl = (quality) => {
   return getQualityIcon(quality)
+}
+
+// 显示同步对话框
+const showSyncDialog = () => {
+  syncMode.value = 'all'
+  selectedArtists.value = []
+  selectedAlbums.value = []
+  selectedTracks.value = []
+  syncDialogVisible.value = true
+}
+
+// 获取已选择数量
+const getSelectedCount = () => {
+  if (syncMode.value === 'artist') return selectedArtists.value.length
+  if (syncMode.value === 'album') return selectedAlbums.value.length
+  if (syncMode.value === 'track') return selectedTracks.value.length
+  return 0
+}
+
+// 执行同步
+const handleSync = async () => {
+  // 校验选择
+  if (syncMode.value !== 'all' && getSelectedCount() === 0) {
+    message.warning('请至少选择一项')
+    return
+  }
+
+  syncLoading.value = true
+  
+  try {
+    // 根据选择模式筛选数据
+    let syncData = []
+    
+    if (syncMode.value === 'all') {
+      // 同步全部
+      syncData = albums.value
+    } else if (syncMode.value === 'artist') {
+      // 按歌手筛选
+      syncData = albums.value.filter(album => selectedArtists.value.includes(album.artist))
+    } else if (syncMode.value === 'album') {
+      // 按专辑筛选
+      syncData = albums.value.filter((_, index) => selectedAlbums.value.includes(index))
+    } else if (syncMode.value === 'track') {
+      // 按歌曲筛选
+      syncData = albums.value.map((album, albumIndex) => {
+        const filteredTracks = album.tracks.filter((_, trackIndex) => 
+          selectedTracks.value.includes(`${albumIndex}-${trackIndex}`)
+        )
+        return filteredTracks.length > 0 ? { ...album, tracks: filteredTracks } : null
+      }).filter(album => album !== null)
+    }
+
+    if (syncData.length === 0) {
+      message.warning('没有可同步的数据')
+      return
+    }
+
+    // 构建 FormData，包含音乐文件
+    const formData = new FormData()
+    
+    // 添加专辑元数据（JSON字符串）
+    formData.append('albums', JSON.stringify(syncData))
+    
+    // 添加音乐文件
+    const trackFilesMap = {} // 用于记录文件名和文件的映射
+    syncData.forEach((album, albumIndex) => {
+      album.tracks.forEach((track, trackIndex) => {
+        const fileName = track.fileName
+        // 从 fileList 中找到对应的文件
+        const fileItem = fileList.value.find(item => {
+          const itemName = item.name || (item.originFileObj && item.originFileObj.name)
+          return itemName === fileName
+        })
+        
+        if (fileItem) {
+          const file = fileItem.originFileObj || fileItem
+          // 使用唯一键：albumIndex-trackIndex
+          const fileKey = `file_${albumIndex}_${trackIndex}`
+          formData.append(fileKey, file)
+          trackFilesMap[fileName] = fileKey
+        }
+      })
+    })
+    
+    // 添加文件映射表
+    formData.append('fileMapping', JSON.stringify(trackFilesMap))
+
+    const hideLoading = message.loading('正在同步到Notion...', 0)
+    
+    await syncMusicToNotion(formData)
+    
+    hideLoading()
+    message.success(`成功同步 ${syncData.length} 个专辑到Notion！`)
+    syncDialogVisible.value = false
+    
+  } catch (error) {
+    console.error('同步失败:', error)
+    message.error('同步失败，请稍后重试')
+  } finally {
+    syncLoading.value = false
+  }
 }
 </script>
 
@@ -878,6 +1087,73 @@ const getQualityIconUrl = (quality) => {
 }
 
 .lyrics-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 同步对话框样式 */
+.sync-dialog-content {
+  padding: 8px 0;
+}
+
+.selection-area {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.selection-label {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+  font-size: 14px;
+}
+
+.track-selection-wrapper {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.album-track-group {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.album-track-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.album-group-title {
+  font-weight: 600;
+  color: #8b5cf6;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.selection-area::-webkit-scrollbar,
+.track-selection-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.selection-area::-webkit-scrollbar-track,
+.track-selection-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.selection-area::-webkit-scrollbar-thumb,
+.track-selection-wrapper::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.selection-area::-webkit-scrollbar-thumb:hover,
+.track-selection-wrapper::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
 </style>

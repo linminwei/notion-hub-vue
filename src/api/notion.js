@@ -59,22 +59,16 @@ export function testConnection(data) {
 }
 
 /**
- * 查询字段映射列表
+ * 音乐同步到Notion
  */
-export function listMappings(datasourceId) {
+export function syncMusicToNotion(formData) {
   return request({
-    url: `/notion/field/list/${datasourceId}`,
-    method: 'get'
-  })
-}
-
-/**
- * 批量保存字段映射
- */
-export function batchSaveMappings(datasourceId, data) {
-  return request({
-    url: `/notion/field/batch/${datasourceId}`,
+    url: '/notion/music/sync',
     method: 'post',
-    data
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    timeout: 60000 // 60秒超时，因为可能需要上传多个文件
   })
 }
