@@ -148,8 +148,8 @@
                 <div class="album-meta">
                   <h2 class="album-name">{{ album.albumName }}</h2>
                   <div class="album-details">
-                    <a-tag v-if="album.artist" color="red" class="info-tag">
-                      <UserOutlined /> {{ album.artist }}
+                    <a-tag v-if="album.albumArtist && album.albumArtist.length > 0" color="red" class="info-tag">
+                      <UserOutlined /> {{ album.albumArtist.join(' & ') }}
                     </a-tag>
                     <a-tag v-if="album.year" color="blue" class="info-tag">
                       <CalendarOutlined /> {{ album.year }}
@@ -211,7 +211,9 @@
                     <template v-else-if="column.key === 'title'">
                       <div class="track-title-cell">
                         <div class="track-name">{{ record.title || record.fileName }}</div>
-                        <div class="track-artist" v-if="record.artist">{{ record.artist }}</div>
+                        <div class="track-artist" v-if="record.artist && record.artist.length > 0">
+                          {{ record.artist.join(' & ') }}
+                        </div>
                       </div>
                     </template>
                     <template v-else-if="column.key === 'quality'">
@@ -314,7 +316,7 @@
                 :key="index" 
                 :value="index"
               >
-                {{ album.albumName }} - {{ album.artist }} ({{ album.tracks.length }} 首)
+                {{ album.albumName }} - {{ album.albumArtist && album.albumArtist.length > 0 ? album.albumArtist.join(' & ') : '未知艺术家' }} ({{ album.tracks.length }} 首)
               </a-checkbox>
             </a-space>
           </a-checkbox-group>
@@ -431,11 +433,13 @@ const totalFileSize = computed(() => {
     : formatFileSize(fileList.value.reduce((sum, f) => sum + ((f.size) || (f.originFileObj && f.originFileObj.size) || 0), 0))
 })
 
-// 歌手列表（去重）
+// 歌手列表（去重，从专辑艺术家中提取）
 const artistList = computed(() => {
   const artists = new Set()
   albums.value.forEach(album => {
-    if (album.artist) artists.add(album.artist)
+    if (album.albumArtist && Array.isArray(album.albumArtist)) {
+      album.albumArtist.forEach(artist => artists.add(artist))
+    }
   })
   return Array.from(artists).sort()
 })
@@ -575,8 +579,10 @@ const handleSync = async () => {
       // 同步全部
       syncData = albums.value
     } else if (syncMode.value === 'artist') {
-      // 按歌手筛选
-      syncData = albums.value.filter(album => selectedArtists.value.includes(album.artist))
+      // 按歌手筛选（专辑艺术家包含任一选中歌手即可）
+      syncData = albums.value.filter(album => 
+        album.albumArtist && album.albumArtist.some(artist => selectedArtists.value.includes(artist))
+      )
     } else if (syncMode.value === 'album') {
       // 按专辑筛选
       syncData = albums.value.filter((_, index) => selectedAlbums.value.includes(index))
