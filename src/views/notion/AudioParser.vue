@@ -492,15 +492,16 @@ const handleParse = async () => {
   
   loading.value = true
   
+  // 显示loading消息
+  const hideLoading = message.loading(MESSAGES.PARSING, 0)
+  
   try {
     // 提取原始文件对象
     const files = fileList.value.map(item => item.originFileObj || item)
     
-    // 显示上传提示
-    const hideLoading = message.loading(MESSAGES.PARSING, 0)
-    
     const response = await parseAudioFiles(files)
     
+    // 关闭loading
     hideLoading()
     
     if (response.code === 200) {
@@ -510,6 +511,9 @@ const handleParse = async () => {
       message.error(response.message || MESSAGES.PARSE_ERROR)
     }
   } catch (error) {
+    // 关闭loading
+    hideLoading()
+    
     console.error('解析失败:', error)
     if (error.code === 'ECONNABORTED') {
       message.error(MESSAGES.TIMEOUT_ERROR)
@@ -568,6 +572,9 @@ const handleSync = async () => {
   }
 
   syncLoading.value = true
+  
+  // 在try外面定义hideLoading
+  let hideLoading = null
   
   try {
     // 根据选择模式筛选数据
@@ -629,15 +636,21 @@ const handleSync = async () => {
     // 添加文件映射表
     formData.append('fileMapping', JSON.stringify(trackFilesMap))
 
-    const hideLoading = message.loading('正在同步到Notion...', 0)
+    hideLoading = message.loading('正在同步到Notion...', 0)
     
     await syncMusicToNotion(formData)
     
+    // 关闭loading
     hideLoading()
     message.success(`成功同步 ${syncData.length} 个专辑到Notion！`)
     syncDialogVisible.value = false
     
   } catch (error) {
+    // 关闭loading
+    if (hideLoading) {
+      hideLoading()
+    }
+    
     console.error('同步失败:', error)
     message.error('同步失败，请稍后重试')
   } finally {
