@@ -56,6 +56,12 @@ export const TABLE_COLUMNS = [
     align: 'center'
   },
   {
+    title: '流派',
+    key: 'genre',
+    width: 100,
+    align: 'center'
+  },
+  {
     title: '语种',
     key: 'language',
     width: 100,

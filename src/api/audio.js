@@ -11,7 +11,7 @@ export function parseAudioFiles(files) {
   })
   
   return request({
-    url: '/audio/parse',
+    url: '/audio/analysis',
     method: 'post',
     data: formData,
     headers: {

@@ -154,24 +154,18 @@
                     <a-tag v-if="album.year" color="blue" class="info-tag">
                       <CalendarOutlined /> {{ album.year }}
                     </a-tag>
-                    <a-tag v-if="album.genre" color="green" class="info-tag">
-                      <TagOutlined /> {{ album.genre }}
-                    </a-tag>
-                    <a-tag v-if="album.language" color="orange" class="info-tag">
-                      🌐 {{ album.language }}
-                    </a-tag>
                     <a-tag color="purple" class="info-tag">
-                      <SoundOutlined /> {{ album.tracks.length }} 首歌曲
+                      <SoundOutlined /> {{ album.musics.length }} 首歌曲
                     </a-tag>
                   </div>
                   
                   <!-- 专辑统计信息 -->
                   <div class="album-stats">
                     <span class="stat-item">
-                      总时长: {{ calculateTotalDuration(album.tracks) }}
+                      总时长: {{ calculateTotalDuration(album.musics) }}
                     </span>
                     <span class="stat-item">
-                      总大小: {{ calculateTotalSize(album.tracks) }}
+                      总大小: {{ calculateTotalSize(album.musics) }}
                     </span>
                   </div>
                 </div>
@@ -198,7 +192,7 @@
               <div v-show="expandedAlbums.includes(index)" class="track-list">
                 <a-table 
                   :columns="trackColumns" 
-                  :data-source="album.tracks" 
+                  :data-source="album.musics" 
                   :pagination="false"
                   :row-key="(record, idx) => idx"
                   size="small"
@@ -224,6 +218,10 @@
                           class="quality-icon"
                         />
                       </div>
+                    </template>
+                    <template v-else-if="column.key === 'genre'">
+                      <a-tag v-if="record.genre" color="orange">{{ record.genre }}</a-tag>
+                      <span v-else style="color: #ccc">--</span>
                     </template>
                     <template v-else-if="column.key === 'language'">
                       <a-tag v-if="record.language" color="cyan">{{ record.language }}</a-tag>
@@ -287,7 +285,7 @@
       <div class="sync-dialog-content">
         <a-radio-group v-model:value="syncMode" style="width: 100%; margin-bottom: 20px;">
           <a-space direction="vertical" style="width: 100%;">
-            <a-radio value="all">同步全部专辑（{{ albums.length }} 个专辑，共 {{ totalTracks }} 首歌曲）</a-radio>
+            <a-radio value="all">同步全部专辑（{{ albums.length }} 个专辑，共 {{ totalMusic }} 首歌曲）</a-radio>
             <a-radio value="artist">按歌手选择同步</a-radio>
             <a-radio value="album">按专辑选择同步</a-radio>
             <a-radio value="track">按歌曲选择同步</a-radio>
@@ -316,7 +314,7 @@
                 :key="index" 
                 :value="index"
               >
-                {{ album.albumName }} - {{ album.albumArtist && album.albumArtist.length > 0 ? album.albumArtist.join(' & ') : '未知艺术家' }} ({{ album.tracks.length }} 首)
+                {{ album.albumName }} - {{ album.albumArtist && album.albumArtist.length > 0 ? album.albumArtist.join(' & ') : '未知艺术家' }} ({{ album.musics.length }} 首)
               </a-checkbox>
             </a-space>
           </a-checkbox-group>
@@ -328,10 +326,10 @@
           <div class="track-selection-wrapper">
             <div v-for="(album, albumIndex) in albums" :key="albumIndex" class="album-track-group">
               <div class="album-group-title">{{ album.albumName }}</div>
-              <a-checkbox-group v-model:value="selectedTracks" style="width: 100%;">
+              <a-checkbox-group v-model:value="selectedmusics" style="width: 100%;">
                 <a-space direction="vertical" style="width: 100%;">
                   <a-checkbox 
-                    v-for="(track, trackIndex) in album.tracks" 
+                    v-for="(track, trackIndex) in album.musics" 
                     :key="`${albumIndex}-${trackIndex}`"
                     :value="`${albumIndex}-${trackIndex}`"
                   >
@@ -419,17 +417,17 @@ const syncLoading = ref(false)
 const syncMode = ref('all') // all | artist | album | track
 const selectedArtists = ref([])
 const selectedAlbums = ref([])
-const selectedTracks = ref([])
+const selectedmusics = ref([])
 
 // 概览统计
-const totalTracks = computed(() => albums.value.reduce((sum, a) => sum + ((a.tracks && a.tracks.length) || 0), 0))
-const totalDuration = computed(() => calculateTotalDuration(albums.value.flatMap(a => a.tracks || [])))
+const totalMusic = computed(() => albums.value.reduce((sum, a) => sum + ((a.musics && a.musics.length) || 0), 0))
+const totalDuration = computed(() => calculateTotalDuration(albums.value.flatMap(a => a.musics || [])))
 const totalFiles = computed(() => fileList.value.length)
-const totalSuccess = computed(() => totalTracks.value)
+const totalSuccess = computed(() => totalMusic.value)
 const totalFailure = computed(() => Math.max(totalFiles.value - totalSuccess.value, 0))
 const totalFileSize = computed(() => {
   return albums.value.length > 0 
-    ? calculateTotalSize(albums.value.flatMap(a => a.tracks || []))
+    ? calculateTotalSize(albums.value.flatMap(a => a.musics || []))
     : formatFileSize(fileList.value.reduce((sum, f) => sum + ((f.size) || (f.originFileObj && f.originFileObj.size) || 0), 0))
 })
 
@@ -549,7 +547,7 @@ const showSyncDialog = () => {
   syncMode.value = 'all'
   selectedArtists.value = []
   selectedAlbums.value = []
-  selectedTracks.value = []
+  selectedmusics.value = []
   syncDialogVisible.value = true
 }
 
@@ -557,7 +555,7 @@ const showSyncDialog = () => {
 const getSelectedCount = () => {
   if (syncMode.value === 'artist') return selectedArtists.value.length
   if (syncMode.value === 'album') return selectedAlbums.value.length
-  if (syncMode.value === 'track') return selectedTracks.value.length
+  if (syncMode.value === 'track') return selectedmusics.value.length
   return 0
 }
 
@@ -589,10 +587,10 @@ const handleSync = async () => {
     } else if (syncMode.value === 'track') {
       // 按歌曲筛选
       syncData = albums.value.map((album, albumIndex) => {
-        const filteredTracks = album.tracks.filter((_, trackIndex) => 
-          selectedTracks.value.includes(`${albumIndex}-${trackIndex}`)
+        const filteredmusics = album.musics.filter((_, trackIndex) => 
+          selectedmusics.value.includes(`${albumIndex}-${trackIndex}`)
         )
-        return filteredTracks.length > 0 ? { ...album, tracks: filteredTracks } : null
+        return filteredmusics.length > 0 ? { ...album, musics: filteredmusics } : null
       }).filter(album => album !== null)
     }
 
@@ -610,7 +608,7 @@ const handleSync = async () => {
     // 添加音乐文件
     const trackFilesMap = {} // 用于记录文件名和文件的映射
     syncData.forEach((album, albumIndex) => {
-      album.tracks.forEach((track, trackIndex) => {
+      album.musics.forEach((track, trackIndex) => {
         const fileName = track.fileName
         // 从 fileList 中找到对应的文件
         const fileItem = fileList.value.find(item => {
