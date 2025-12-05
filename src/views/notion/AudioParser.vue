@@ -652,7 +652,6 @@ const handleSync = async () => {
     }
     
     console.error('同步失败:', error)
-    message.error('同步失败，请稍后重试')
   } finally {
     syncLoading.value = false
   }
